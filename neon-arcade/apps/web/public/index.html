@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>霓虹游戏站 | NEON ARCADE</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: #0a0a0a;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .stars {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .star {
+            position: absolute;
+            width: 2px; height: 2px;
+            background: #fff;
+            border-radius: 50%;
+            animation: twinkle 2s infinite;
+        }
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+        header {
+            text-align: center;
+            padding: 40px 20px 30px;
+            position: relative;
+            z-index: 1;
+        }
+        h1 {
+            color: #fff;
+            font-size: 3.5em;
+            letter-spacing: 15px;
+            text-transform: uppercase;
+            background: linear-gradient(90deg, #00f5ff, #ff00ff, #ffcc00, #00ff88, #00f5ff);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shine 3s linear infinite;
+            text-shadow: 0 0 60px rgba(0, 245, 255, 0.5);
+        }
+        @keyframes shine {
+            0% { background-position: 0% center; }
+            100% { background-position: 200% center; }
+        }
+        .subtitle {
+            color: #888;
+            font-size: 1.1em;
+            margin-top: 10px;
+            letter-spacing: 5px;
+        }
+        
+        /* 搜索栏 */
+        .search-bar {
+            max-width: 500px;
+            margin: 20px auto;
+            position: relative;
+            z-index: 1;
+        }
+        .search-bar input {
+            width: 100%;
+            padding: 15px 25px;
+            font-size: 1em;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 50px;
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            outline: none;
+            transition: all 0.3s;
+        }
+        .search-bar input:focus {
+            border-color: #00f5ff;
+            box-shadow: 0 0 20px rgba(0, 245, 255, 0.3);
+        }
+        .search-bar input::placeholder {
+            color: #666;
+        }
+        
+        /* 分类标签 */
+        .categories {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            padding: 20px;
+            flex-wrap: wrap;
+            position: relative;
+            z-index: 1;
+        }
+        .category-btn {
+            padding: 10px 25px;
+            border: 2px solid rgba(255,255,255,0.2);
+            background: transparent;
+            color: #888;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 0.95em;
+        }
+        .category-btn:hover, .category-btn.active {
+            border-color: #00f5ff;
+            color: #00f5ff;
+            box-shadow: 0 0 15px rgba(0, 245, 255, 0.3);
+        }
+        .category-btn.active {
+            background: rgba(0, 245, 255, 0.1);
+        }
+        
+        /* 游戏网格 */
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 25px;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+        .game-card {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 25px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            display: none;
+        }
+        .game-card.show {
+            display: block;
+        }
+        .game-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: 20px;
+            padding: 2px;
+            background: linear-gradient(45deg, var(--color1), var(--color2));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .game-card:hover::before { opacity: 1; }
+        .game-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+        }
+        .game-card[data-category="puzzle"] { --color1: #00f5ff; --color2: #0080ff; }
+        .game-card[data-category="action"] { --color1: #ff00ff; --color2: #ff0066; }
+        .game-card[data-category="classic"] { --color1: #ffcc00; --color2: #ff6600; }
+        .game-card[data-category="casual"] { --color1: #00ff88; --color2: #00f5ff; }
+        .game-card[data-category="reaction"] { --color1: #8B4513; --color2: #D2691E; }
+        .game-card[data-category="sudoku"] { --color1: #9b59b6; --color2: #e74c3c; }
+        
+        .game-tag {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-size: 0.75em;
+            color: #fff;
+            background: var(--color1);
+            opacity: 0.8;
+        }
+        .game-icon {
+            font-size: 3.5em;
+            margin-bottom: 15px;
+            display: block;
+        }
+        .game-card h2 {
+            color: #fff;
+            font-size: 1.6em;
+            margin-bottom: 8px;
+            letter-spacing: 3px;
+        }
+        .game-card p {
+            color: #888;
+            font-size: 0.9em;
+            line-height: 1.5;
+            margin-bottom: 15px;
+        }
+        .play-btn {
+            display: inline-block;
+            padding: 10px 30px;
+            border: 2px solid var(--color1);
+            color: var(--color1);
+            text-decoration: none;
+            border-radius: 30px;
+            font-weight: bold;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-size: 0.9em;
+            position: relative;
+            z-index: 10;
+        }
+        .play-btn:hover {
+            background: var(--color1);
+            color: #0a0a0a;
+            box-shadow: 0 0 30px var(--color1);
+        }
+        
+        /* 无结果提示 */
+        .no-results {
+            text-align: center;
+            color: #666;
+            padding: 60px 20px;
+            display: none;
+        }
+        .no-results.show {
+            display: block;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 0.9em;
+            position: relative;
+            z-index: 1;
+        }
+        
+        @media (max-width: 768px) {
+            h1 { font-size: 2.5em; letter-spacing: 8px; }
+            .games-grid { grid-template-columns: 1fr; }
+            .category-btn { padding: 8px 18px; font-size: 0.85em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="stars" id="stars"></div>
+    
+    <header>
+        <h1>NEON ARCADE</h1>
+        <div class="subtitle">霓虹游戏站 · 经典小游戏合集</div>
+    </header>
+
+    <!-- 搜索栏 -->
+    <div class="search-bar">
+        <input type="text" id="searchInput" placeholder="搜索游戏...">
+    </div>
+
+    <!-- 分类标签 -->
+    <div class="categories">
+        <button class="category-btn active" data-category="all">全部</button>
+        <button class="category-btn" data-category="puzzle">益智</button>
+        <button class="category-btn" data-category="action">动作</button>
+        <button class="category-btn" data-category="classic">经典</button>
+        <button class="category-btn" data-category="casual">休闲</button>
+        <button class="category-btn" data-category="reaction">反应</button>
+    </div>
+
+    <!-- 游戏列表 -->
+    <div class="games-grid" id="gamesGrid">
+        <div class="game-card show" data-category="classic" data-name="贪吃蛇">
+            <span class="game-tag">经典</span>
+            <span class="game-icon">🐍</span>
+            <h2>贪吃蛇</h2>
+            <p>经典贪吃蛇游戏，霓虹发光效果，吃食物变长，挑战最高分！</p>
+            <a href="snake/index.html" class="play-btn">开始游戏</a>
+        </div>
+        
+        <div class="game-card show" data-category="puzzle" data-name="俄罗斯方块">
+            <span class="game-tag">益智</span>
+            <span class="game-icon">🎮</span>
+            <h2>俄罗斯方块</h2>
+            <p>永恒的益智经典，消除行数得分，速度会越来越快！</p>
+            <a href="tetris/index.html" class="play-btn">开始游戏</a>
+        </div>
+        
+        <div class="game-card show" data-category="puzzle" data-name="2048">
+            <span class="game-tag">益智</span>
+            <span class="game-icon">🔢</span>
+            <h2>2048</h2>
+            <p>滑动合并数字，目标是达到2048，考验你的策略思维！</p>
+            <a href="2048/index.html" class="play-btn">开始游戏</a>
+        </div>
+        
+        <div class="game-card show" data-category="action" data-name="飞机大战">
+            <span class="game-tag">动作</span>
+            <span class="game-icon">✈️</span>
+            <h2>飞机大战</h2>
+            <p>操控战机躲避敌机，发射子弹消灭敌人，保卫领空！</p>
+            <a href="airplane/index.html" class="play-btn">开始游戏</a>
+        </div>
+        
+        <div class="game-card show" data-category="reaction" data-name="打地鼠">
+            <span class="game-tag">反应</span>
+            <span class="game-icon">🔨</span>
+            <h2>打地鼠</h2>
+            <p>经典打地鼠游戏，三种难度可选，连击得分更高！</p>
+            <a href="whack-a-mole/index.html" class="play-btn">开始游戏</a>
+        </div>
+        
+        <div class="game-card show" data-category="puzzle" data-name="数独">
+            <span class="game-tag">益智</span>
+            <span class="game-icon">🧩</span>
+            <h2>霓虹数独</h2>
+            <p>经典数独闯关，三种难度，每日挑战，道具提示助你通关！</p>
+            <a href="sudoku/index.html" class="play-btn">开始游戏</a>
+        </div>
+    </div>
+
+    <div class="no-results" id="noResults">
+        <p>😕 没有找到匹配的游戏</p>
+        <p style="color: #444; margin-top: 10px;">试试其他关键词或分类</p>
+    </div>
+
+    <footer>
+        <p>使用方向键或触摸控制 · 支持手机/电脑</p>
+    </footer>
+
+    <script>
+        // 生成星星背景
+        const starsContainer = document.getElementById('stars');
+        for (let i = 0; i < 150; i++) {
+            const star = document.createElement('div');
+            star.className = 'star';
+            star.style.left = Math.random() * 100 + '%';
+            star.style.top = Math.random() * 100 + '%';
+            star.style.animationDelay = Math.random() * 2 + 's';
+            starsContainer.appendChild(star);
+        }
+
+        // 分类筛选
+        const categoryBtns = document.querySelectorAll('.category-btn');
+        const gameCards = document.querySelectorAll('.game-card');
+        const noResults = document.getElementById('noResults');
+        const searchInput = document.getElementById('searchInput');
+
+        categoryBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                categoryBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                filterGames();
+            });
+        });
+
+        // 搜索功能
+        searchInput.addEventListener('input', filterGames);
+
+        // 页面加载时显示所有游戏
+        window.onload = function() {
+            filterGames();
+        };
+
+        function filterGames() {
+            const activeCategory = document.querySelector('.category-btn.active').dataset.category;
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            let visibleCount = 0;
+
+            gameCards.forEach(card => {
+                const category = card.dataset.category;
+                const name = card.dataset.name.toLowerCase();
+                const desc = card.querySelector('p').textContent.toLowerCase();
+                
+                const matchesCategory = activeCategory === 'all' || category === activeCategory;
+                const matchesSearch = !searchTerm || name.includes(searchTerm) || desc.includes(searchTerm);
+                
+                if (matchesCategory && matchesSearch) {
+                    card.classList.add('show');
+                    visibleCount++;
+                } else {
+                    card.classList.remove('show');
+                }
+            });
+
+            noResults.classList.toggle('show', visibleCount === 0);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>霓虹贪吃蛇</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: #0a0a0a;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        h1 {
+            color: #00f5ff;
+            text-shadow: 0 0 20px #00f5ff, 0 0 40px #00f5ff;
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            letter-spacing: 5px;
+        }
+        .game-info {
+            display: flex;
+            gap: 40px;
+            margin-bottom: 20px;
+            color: #fff;
+            font-size: 1.2em;
+        }
+        .info-item {
+            text-align: center;
+            padding: 10px 25px;
+            background: rgba(0, 245, 255, 0.1);
+            border: 1px solid #00f5ff;
+            border-radius: 10px;
+            box-shadow: 0 0 15px rgba(0, 245, 255, 0.3);
+        }
+        .info-item span {
+            display: block;
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #00f5ff;
+        }
+        .game-container {
+            position: relative;
+            padding: 3px;
+            background: linear-gradient(45deg, #00f5ff, #ff00ff, #00f5ff);
+            border-radius: 15px;
+            animation: glow 3s linear infinite;
+        }
+        @keyframes glow {
+            0%, 100% { filter: hue-rotate(0deg); }
+            50% { filter: hue-rotate(180deg); }
+        }
+        canvas {
+            display: block;
+            background: #0a0a0a;
+            border-radius: 12px;
+        }
+        .controls {
+            margin-top: 25px;
+            display: flex;
+            gap: 20px;
+        }
+        button {
+            padding: 12px 35px;
+            font-size: 1.1em;
+            border: 2px solid #00f5ff;
+            background: transparent;
+            color: #00f5ff;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        button:hover {
+            background: #00f5ff;
+            color: #0a0a0a;
+            box-shadow: 0 0 30px #00f5ff;
+        }
+        .game-over {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #fff;
+            display: none;
+        }
+        .game-over.show { display: block; }
+        .game-over h2 {
+            font-size: 3em;
+            color: #ff0066;
+            text-shadow: 0 0 20px #ff0066;
+            margin-bottom: 20px;
+        }
+        .back-link {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            color: #00f5ff;
+            text-decoration: none;
+            font-size: 1.1em;
+            border: 1px solid #00f5ff;
+            padding: 8px 20px;
+            border-radius: 20px;
+            transition: all 0.3s;
+        }
+        .back-link:hover {
+            background: #00f5ff;
+            color: #0a0a0a;
+        }
+        @media (max-width: 600px) {
+            h1 { font-size: 1.8em; }
+            canvas { width: 350px; height: 350px; }
+            .game-info { gap: 20px; font-size: 1em; }
+        }
+    </style>
+</head>
+<body>
+    
+    <h1>NEON SNAKE</h1>
+    <div class="game-info">
+        <div class="info-item"><span id="score">0</span>得分</div>
+        <div class="info-item"><span id="highScore">0</span>最高分</div>
+    </div>
+    <div class="game-container">
+        <canvas id="game" width="400" height="400"></canvas>
+        <div class="game-over" id="gameOver">
+            <h2>GAME OVER</h2>
+            <button onclick="startGame()">重新开始</button>
+        </div>
+    </div>
+    <div class="controls">
+        <button id="startBtn" onclick="startGame()">开始游戏</button>
+    </div>
+    <div class="instructions" style="margin-top: 15px; color: #888; font-size: 0.9em; text-align: center;">
+        🎮 操作说明：使用方向键 ↑ ↓ ← → 控制蛇移动
+    </div>
+    <script>
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        const gridSize = 20;
+        const tileCount = canvas.width / gridSize;
+        let snake = [{x: 10, y: 10}];
+        let food = {x: 15, y: 15};
+        let dx = 0, dy = 0;
+        let score = 0;
+        let highScore = localStorage.getItem('snakeHighScore') || 0;
+        let gameLoop;
+        let gameRunning = false;
+
+        document.getElementById('highScore').textContent = highScore;
+
+        function drawGame() {
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            snake.forEach((segment, i) => {
+                ctx.fillStyle = i === 0 ? '#00f5ff' : '#00a0ff';
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#00f5ff';
+                ctx.fillRect(segment.x * gridSize + 1, segment.y * gridSize + 1, gridSize - 2, gridSize - 2);
+                ctx.shadowBlur = 0;
+            });
+
+            ctx.fillStyle = '#ff00ff';
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#ff00ff';
+            ctx.beginPath();
+            ctx.arc(food.x * gridSize + gridSize/2, food.y * gridSize + gridSize/2, gridSize/2 - 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+
+        function update() {
+            const head = {x: snake[0].x + dx, y: snake[0].y + dy};
+
+            if (head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount ||
+                snake.some(s => s.x === head.x && s.y === head.y)) {
+                gameOver();
+                return;
+            }
+
+            snake.unshift(head);
+
+            if (head.x === food.x && head.y === food.y) {
+                score += 10;
+                document.getElementById('score').textContent = score;
+                placeFood();
+            } else {
+                snake.pop();
+            }
+
+            drawGame();
+        }
+
+        function placeFood() {
+            do {
+                food = {
+                    x: Math.floor(Math.random() * tileCount),
+                    y: Math.floor(Math.random() * tileCount)
+                };
+            } while (snake.some(s => s.x === food.x && s.y === food.y));
+        }
+
+        function startGame() {
+            snake = [{x: 10, y: 10}];
+            dx = 1; dy = 0;
+            score = 0;
+            document.getElementById('score').textContent = score;
+            document.getElementById('gameOver').classList.remove('show');
+            gameRunning = true;
+            placeFood();
+            drawGame();
+            clearInterval(gameLoop);
+            gameLoop = setInterval(update, 150);
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            clearInterval(gameLoop);
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('snakeHighScore', highScore);
+                document.getElementById('highScore').textContent = highScore;
+            }
+            document.getElementById('gameOver').classList.add('show');
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+            switch(e.key) {
+                case 'ArrowUp': if (dy === 0) { dx = 0; dy = -1; } break;
+                case 'ArrowDown': if (dy === 0) { dx = 0; dy = 1; } break;
+                case 'ArrowLeft': if (dx === 0) { dx = -1; dy = 0; } break;
+                case 'ArrowRight': if (dx === 0) { dx = 1; dy = 0; } break;
+            }
+        });
+
+        drawGame();
+    </script>
+</

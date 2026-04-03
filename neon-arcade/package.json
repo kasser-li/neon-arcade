@@ -1,0 +1,15 @@
+{
+  "name": "neon-arcade",
+  "version": "1.0.0",
+  "description": "霓虹游戏站 - 在线小游戏平台",
+  "type": "module",
+  "scripts": {
+    "dev": "cd apps/web && npm run dev",
+    "build": "cd apps/web && npm run build",
+    "preview": "cd apps/web && npm run preview"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
