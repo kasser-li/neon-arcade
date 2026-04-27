@@ -1,0 +1,101 @@
+{
+  "version": 1,
+  "skills": {
+    "tavily-search": {
+      "version": "1.0.0",
+      "installedAt": 1773205117258
+    },
+    "summarize": {
+      "version": "1.0.0",
+      "installedAt": 1772979765348
+    },
+    "agent-browser": {
+      "version": "0.2.0",
+      "installedAt": 1772979767097
+    },
+    "find-skills": {
+      "version": "0.1.0",
+      "installedAt": 1772979768513
+    },
+    "github": {
+      "version": "1.0.0",
+      "installedAt": 1772979770026
+    },
+    "obsidian": {
+      "version": "1.0.0",
+      "installedAt": 1772979771448
+    },
+    "weather": {
+      "version": "1.0.0",
+      "installedAt": 1772979773117
+    },
+    "tencentcloud-lighthouse-skill": {
+      "version": "1.0.0",
+      "installedAt": 1772979775049
+    },
+    "tencent-docs": {
+      "version": "1.0.4",
+      "installedAt": 1772979777037
+    },
+    "tencent-cos-skill": {
+      "version": "1.0.6",
+      "installedAt": 1772979779532
+    },
+    "cron-mastery": {
+      "version": "1.0.3",
+      "installedAt": 1773130763827
+    },
+    "ai-music-generation": {
+      "version": "0.1.5",
+      "installedAt": 1773211138184
+    },
+    "music-generation": {
+      "version": "1.0.0",
+      "installedAt": 1773211170161
+    },
+    "aiml-music-generator": {
+      "version": "1.0.0",
+      "installedAt": 1773211440935
+    },
+    "xiaohongshu-mcp": {
+      "version": "1.0.0",
+      "installedAt": 1773280581003
+    },
+    "rednote": {
+      "version": "1.2.4",
+      "installedAt": 1773287660821
+    },
+    "aliyun-image": {
+      "version": "1.1.0",
+      "installedAt": 1773574427462
+    },
+    "image-gen-skill": {
+      "version": "0.1.0",
+      "installedAt": 1773574458795
+    },
+    "phoenixclaw-image-gen": {
+      "version": "0.2.1",
+      "installedAt": 1773574472109
+    },
+    "baidu-search": {
+      "version": "1.1.0",
+      "installedAt": 1773990576691
+    },
+    "memory-search": {
+      "version": "1.0.0",
+      "installedAt": 1774431694582
+    },
+    "skill-vetter-1-0-0": {
+      "version": "1.0.0",
+      "installedAt": 1774835439655
+    },
+    "self-improving": {
+      "version": "1.2.16",
+      "installedAt": 1774836927568
+    },
+    "threejs": {
+      "version": "1.0.0",
+      "installedAt": 1775622617399
+    }
+  }
+}

@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <!-- 纯黑背景 -->
+  <rect width="400" height="400" fill="#000000"/>
+  
+  <!-- 耳机头带 - 白色弧形 -->
+  <path d="M 80 130 Q 200 60 320 130" 
+        stroke="#ffffff" stroke-width="14" fill="none" stroke-linecap="round"/>
+  
+  <!-- 脸部 - 白色豆子形状 -->
+  <path d="M 120 180 
+           Q 120 120 200 120 
+           Q 280 120 280 180 
+           Q 280 240 200 240 
+           Q 120 240 120 180 Z" 
+        fill="#ffffff"/>
+  
+  <!-- 左眼 - 黑色椭圆 -->
+  <ellipse cx="165" cy="175" rx="16" ry="24" fill="#000000"/>
+  <!-- 左眼高光 - 白色小椭圆 -->
+  <ellipse cx="170" cy="168" rx="5" ry="7" fill="#ffffff"/>
+  
+  <!-- 右眼 - 黑色椭圆 -->
+  <ellipse cx="235" cy="175" rx="16" ry="24" fill="#000000"/>
+  <!-- 右眼高光 - 白色小椭圆 -->
+  <ellipse cx="240" cy="168" rx="5" ry="7" fill="#ffffff"/>
+  
+  <!-- 右手/爪子 - 白色线条轮廓 -->
+  <g stroke="#ffffff" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <!-- 手掌轮廓 -->
+    <path d="M 280 200 Q 320 190 350 220 Q 370 240 360 270 Q 350 290 320 285 Q 300 280 290 260"/>
+    
+    <!-- 手指1 - 拇指 -->
+    <path d="M 300 215 Q 290 200 295 185 Q 300 175 310 180"/>
+    
+    <!-- 手指2 - 食指 -->
+    <path d="M 320 205 Q 325 185 335 175 Q 345 170 350 180"/>
+    
+    <!-- 手指3 - 中指 -->
+    <path d="M 340 210 Q 350 190 365 185 Q 375 182 378 192"/>
+    
+    <!-- 手指4 - 无名指 -->
+    <path d="M 355 225 Q 370 215 385 225 Q 392 232 385 240"/>
+    
+    <!-- 手腕条纹1 -->
+    <path d="M 285 235 Q 295 245 305 240"/>
+    <!-- 手腕条纹2 -->
+    <path d="M 280 250 Q 290 260 300 255"/>
+    <!-- 手腕条纹3 -->
+    <path d="M 275 265 Q 285 275 295 270"/>
+  </g>
+  
+  <!-- 手臂 - 白色线条 -->
+  <path d="M 260 230 Q 270 240 285 250" 
+        stroke="#ffffff" stroke-width="4" fill="none" stroke-linecap="round"/>
+</svg>

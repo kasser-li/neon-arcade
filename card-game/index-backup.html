@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎴 卡牌战旗</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: linear-gradient(135deg, #1a1a2e 0%, #0a0a15 100%); display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: 'Segoe UI', sans-serif; overflow: hidden; }
+        #game-container { position: relative; width: 1100px; height: 700px; border: 3px solid #444; border-radius: 10px; box-shadow: 0 0 40px rgba(0,0,0,0.8); background: linear-gradient(180deg, #2a2a4a 0%, #1a1a2e 100%); }
+        canvas { display: block; }
+        #top-bar { position: absolute; top: 0; left: 0; right: 0; height: 50px; background: rgba(0,0,0,0.6); display: flex; justify-content: space-between; align-items: center; padding: 0 20px; border-bottom: 2px solid #333; z-index: 50; }
+        #floor-display { color: #ffd700; font-size: 1.2em; font-weight: bold; }
+        #gold-display { color: #ffcc00; font-size: 1.1em; }
+        #turn-counter { color: #aaa; font-size: 1em; }
+        #end-turn-btn { position: absolute; top: 60px; right: 20px; padding: 12px 30px; background: linear-gradient(45deg, #ff6600, #ff3366); border: none; border-radius: 8px; color: #fff; font-size: 1.1em; font-weight: bold; cursor: pointer; box-shadow: 0 4px 15px rgba(255,100,0,0.4); transition: all 0.2s; z-index: 50; }
+        #end-turn-btn:hover { transform: scale(1.05); }
+        #end-turn-btn:disabled { background: #555; cursor: not-allowed; }
+        #battle-log-container { position: absolute; bottom: 20px; right: 20px; z-index: 50; }
+        #battle-log-header { background: rgba(0,0,0,0.7); border: 1px solid #444; border-radius: 8px 8px 0 0; padding: 8px 15px; color: #aaa; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 0.9em; }
+        #battle-log { width: 250px; max-height: 150px; overflow-y: auto; background: rgba(0,0,0,0.7); border: 1px solid #444; border-top: none; border-radius: 0 0 8px 8px; padding: 10px; font-size: 0.8em; color: #ccc; display: block; }
+        #battle-log.collapsed { display: none; }
+        #battle-log p { margin: 4px 0; padding: 4px 8px; border-left: 3px solid #4488ff; padding-left: 10px; background: rgba(255,255,255,0.05); border-radius: 0 4px 4px 0; }
+        #battle-log p.enemy { border-left-color: #ff4444; }
+        #battle-log p.player { border-left-color: #4488ff; }
+        #battle-log p.system { border-left-color: #ffd700; }
+        #reward-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.92); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 100; }
+        #reward-overlay.show { display: flex; }
+        #reward-title { color: #ffd700; font-size: 2em; margin-bottom: 15px; }
+        #reward-subtitle { color: #aaa; margin-bottom: 30px; }
+        #reward-cards { display: flex; gap: 20px; margin-bottom: 25px; flex-wrap: wrap; justify-content: center; }
+        .reward-card { width: 170px; height: 240px; border-radius: 12px; cursor: pointer; transition: all 0.2s; }
+        .reward-card:hover { transform: translateY(-12px) scale(1.03); }
+        .reward-card.common { border: 3px solid #fff; }
+        .reward-card.rare { border: 3px solid #4488ff; }
+        .reward-card.epic { border: 3px solid #aa44ff; }
+        .reward-card-internal { width: 100%; height: 100%; padding: 12px; display: flex; flex-direction: column; background: linear-gradient(180deg, #3a3a5a 0%, #2a2a4a 100%); }
+        .reward-card-name { color: #fff; font-size: 1em; font-weight: bold; text-align: center; margin-bottom: 8px; }
+        .reward-card-type { font-size: 2.2em; text-align: center; margin: 8px 0; }
+        .reward-card-desc { color: #aaa; font-size: 0.8em; text-align: center; flex: 1; line-height: 1.4; }
+        .reward-card-rarity { color: #ffd700; font-size: 0.75em; text-align: center; padding: 6px; border-top: 1px solid #444; margin-top: 8px; }
+        #skip-btn { padding: 12px 40px; background: linear-gradient(45deg, #666, #444); border: none; border-radius: 25px; color: #fff; font-size: 1em; cursor: pointer; }
+        #skip-btn:hover { transform: scale(1.05); }
+        #gameover-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.95); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 200; }
+        #gameover-overlay.show { display: flex; }
+        #gameover-title { font-size: 3em; margin-bottom: 20px; }
+        #gameover-title.victory { background: linear-gradient(45deg, #ffd700, #ffaa00); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        #gameover-title.defeat { color: #ff4444; }
+        #gameover-stats { color: #aaa; font-size: 1.2em; margin-bottom: 30px; text-align: center; line-height: 1.8; }
+        #restart-btn { padding: 15px 50px; background: linear-gradient(45deg, #0066ff, #00ccff); border: none; border-radius: 30px; color: #fff; font-size: 1.2em; cursor: pointer; }
+        #restart-btn:hover { transform: scale(1.05); }
+        #enemy-select-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 150; }
+        #enemy-select-overlay.show { display: flex; }
+        #enemy-select-title { color: #ffd700; font-size: 1.8em; margin-bottom: 30px; }
+        #path-select-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.95); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 160; }
+        #path-select-overlay.show { display: flex; }
+        #path-title { color: #ffd700; font-size: 2em; margin-bottom: 20px; }
+        #path-subtitle { color: #aaa; margin-bottom: 40px; }
+        #path-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 25px; }
+        .path-node { width: 120px; height: 150px; background: linear-gradient(180deg, #3a3a5a, #2a2a4a); border: 3px solid #444; border-radius: 15px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 15px; transition: all 0.2s; }
+        .path-node:hover { transform: translateY(-10px) scale(1.05); border-color: #ff6600; box-shadow: 0 10px 30px rgba(255,100,0,0.4); }
+        .path-node.battle { border-color: #ff4444; }
+        .path-node.elite { border-color: #aa44ff; }
+        .path-node.rest { border-color: #44ff44; }
+        .path-node.shop { border-color: #ffcc00; }
+        .path-node.boss { border-color: #ff0000; }
+        .path-node-icon { font-size: 4em; margin-bottom: 10px; }
+        .path-node-name { color: #fff; font-size: 1.1em; font-weight: bold; }
+        .path-node-desc { color: #aaa; font-size: 0.8em; text-align: center; margin-top: 5px; }
+        .enemy-option { width: 140px; height: 180px; background: linear-gradient(180deg, #3a3a5a, #2a2a4a); border: 2px solid #444; border-radius: 12px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 15px; }
+        .enemy-option:hover { border-color: #ff6600; transform: scale(1.05); }
+        .enemy-option-icon { font-size: 3.5em; margin-bottom: 10px; }
+        .enemy-option-name { color: #fff; font-size: 1.1em; font-weight: bold; margin-bottom: 5px; }
+        .enemy-option-stats { color: #aaa; font-size: 0.85em; text-align: center; }
+        .buff-icons { position: absolute; top: 120px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; z-index: 50; }
+        .buff-icon { background: rgba(0,0,0,0.7); border: 2px solid #666; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 1.3em; position: relative; }
+        .buff-icon .count { position: absolute; bottom: -5px; right: -5px; background: #ff6600; color: #fff; font-size: 0.7em; padding: 2px 6px; border-radius: 10px; }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas" width="1100" height="700"></canvas>
+        <div id="top-bar"><div id="floor-display">📍 第 1 层</div><div id="turn-counter">回合：1</div><div id="gold-display">💰 0 金币</div></div>
+        <button id="end-turn-btn" onclick="endTurn()">结束回合 <span class="hotkey">[E]</span></button>
+        <div class="buff-icons" id="player-buffs"></div>
+        <div id="battle-log-container"><div id="battle-log-header" onclick="toggleLog()"><span>📜 战斗记录</span><span id="log-toggle">▼</span></div><div id="battle-log"></div></div>
+        <div id="reward-overlay"><div id="reward-title">🎁 胜利奖励</div><div id="reward-subtitle">选择一张卡牌加入卡组</div><div id="reward-cards"></div><button id="skip-btn">跳过</button></div>
+        <div id="enemy-select-overlay"><div id="enemy-select-title">⚔️ 遭遇敌人</div></div>
+        <div id="path-select-overlay"><div id="path-title">🗺️ 选择前进路线</div><div id="path-subtitle">选择下一个探索的节点</div><div id="path-grid"></div></div>
+        <div id="gameover-overlay"><div id="gameover-title"></div><div id="gameover-stats"></div><button id="restart-btn">🔄 再来一局</button></div>
+    </div>
+    <script>
+        const CONFIG = { cardWidth: 130, cardHeight: 180, cardGap: 15, drawCardsPerTurn: 5, maxHandSize: 10 };
+        
+        const CARD_DATABASE = {
+            strike: { id: 'strike', name: '打击', type: 'attack', cost: 1, rarity: 'common', desc: '造成 6 点伤害', effect: { damage: 6 } },
+            defend: { id: 'defend', name: '防御', type: 'skill', cost: 1, rarity: 'common', desc: '获得 5 点护甲', effect: { block: 5 } },
+            heavyStrike: { id: 'heavyStrike', name: '重击', type: 'attack', cost: 1, rarity: 'common', desc: '造成 10 点伤害', effect: { damage: 10 } },
+            strongDefend: { id: 'strongDefend', name: '格挡', type: 'skill', cost: 1, rarity: 'common', desc: '获得 12 点护甲', effect: { block: 12 } },
+            bash: { id: 'bash', name: '痛击', type: 'attack', cost: 1, rarity: 'rare', desc: '造成 8 点伤害，施加 2 层虚弱', effect: { damage: 8, weak: 2 } },
+            ironWave: { id: 'ironWave', name: '铁波斩', type: 'attack', cost: 1, rarity: 'rare', desc: '造成 5 点伤害，获得 5 点护甲', effect: { damage: 5, block: 5 } },
+            cleave: { id: 'cleave', name: '顺劈斩', type: 'attack', cost: 1, rarity: 'rare', desc: '对所有敌人造成 8 点伤害', effect: { damage: 8, all: true } },
+            armaments: { id: 'armaments', name: '重整旗鼓', type: 'skill', cost: 1, rarity: 'rare', desc: '获得 8 点护甲，抽 1 张牌', effect: { block: 8, draw: 1 } },
+            bloodletting: { id: 'bloodletting', name: '放血', type: 'skill', cost: 0, rarity: 'rare', desc: '失去 6HP，获得 2 点能量', effect: { hpLoss: 6, energy: 2 } },
+            whirlwind: { id: 'whirlwind', name: '旋风斩', type: 'attack', cost: 2, rarity: 'rare', desc: '对所有敌人造成 10 点伤害', effect: { damage: 10, all: true } },
+            fanatic: { id: 'fanatic', name: '狂热', type: 'power', cost: 1, rarity: 'epic', desc: '每回合开始时获得 1 点能量', effect: { energyPerTurn: 1, power: true } },
+            barrier: { id: 'barrier', name: '屏障', type: 'skill', cost: 1, rarity: 'epic', desc: '获得 20 点护甲，保留到下一回合', effect: { block: 20, persistent: true } },
+            execute: { id: 'execute', name: '终结技', type: 'attack', cost: 2, rarity: 'epic', desc: '造成 16 点伤害，敌人 HP<30% 时翻倍', effect: { damage: 16, execute: true } },
+            vitality: { id: 'vitality', name: '活力', type: 'power', cost: 1, rarity: 'epic', desc: '每回合开始回复 3HP', effect: { healPerTurn: 3, power: true } },
+            doubleStrike: { id: 'doubleStrike', name: '双重打击', type: 'attack', cost: 1, rarity: 'epic', desc: '造成 6 点伤害两次', effect: { damage: 6, hitCount: 2 } }
+        };
+
+        const ENEMY_DATABASE = {
+            slime: { name: '史莱姆', hp: 40, maxHp: 40, attack: 6, image: '🦠' },
+            thief: { name: '盗贼', hp: 45, maxHp: 45, attack: 8, image: '🗡️' },
+            skeleton: { name: '骷髅兵', hp: 55, maxHp: 55, attack: 10, image: '💀' },
+            golem: { name: '石像鬼', hp: 70, maxHp: 70, attack: 8, image: '🗿' },
+            mage: { name: '黑暗法师', hp: 35, maxHp: 35, attack: 12, image: '🧙' },
+            ghost: { name: '幽灵', hp: 40, maxHp: 40, attack: 7, image: '👻' },
+            demon: { name: '小恶魔', hp: 50, maxHp: 50, attack: 9, image: '👿' },
+            wolf: { name: '饿狼', hp: 48, maxHp: 48, attack: 9, image: '🐺' }
+        };
+
+        const BOSS_ENEMIES = {
+            dragon: { name: '远古巨龙', hp: 150, maxHp: 150, attack: 15, image: '🐲' },
+            lich: { name: '巫妖王', hp: 120, maxHp: 120, attack: 12, image: '💀' },
+            golemKing: { name: '魔像之王', hp: 180, maxHp: 180, attack: 10, image: '🗿' }
+        };
+
+        let gameState = {
+            floor: 1, gold: 0, deck: [], hand: [], drawPile: [], discardPile: [],
+            player: { hp: 80, maxHp: 80, energy: 3, maxEnergy: 3, block: 0, weak: 0, vulnerable: 0, powers: [] },
+            enemies: [], turn: 1, isPlayerTurn: true, gameOver: false, cardsCollected: 0, logCollapsed: false,
+            hoveredCard: -1, dragging: false, dragCardIndex: -1, dragStartX: 0, dragStartY: 0, dragCurrentX: 0, dragCurrentY: 0,
+            maxFloors: 3, pathNodes: []
+        };
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function initGame() {
+            gameState = {
+                floor: 1, gold: 0,
+                deck: ['strike', 'strike', 'strike', 'strike', 'defend', 'defend', 'defend', 'defend', 'bash', 'armaments'],
+                hand: [], drawPile: [], discardPile: [],
+                player: { hp: 80, maxHp: 80, energy: 3, maxEnergy: 3, block: 0, weak: 0, vulnerable: 0, powers: [] },
+                enemies: [], turn: 1, isPlayerTurn: true, gameOver: false, cardsCollected: 0, logCollapsed: false,
+                hoveredCard: -1, dragging: false, dragCardIndex: -1, dragStartX: 0, dragStartY: 0, dragCurrentX: 0, dragCurrentY: 0
+            };
+            document.getElementById('gameover-overlay').classList.remove('show');
+            document.getElementById('reward-overlay').classList.remove('show');
+            document.getElementById('enemy-select-overlay').classList.remove('show');
+            document.getElementById('battle-log').innerHTML = '';
+            document.getElementById('battle-log').classList.remove('collapsed');
+            document.getElementById('log-toggle').textContent = '▼';
+            document.getElementById('end-turn-btn').disabled = false;
+            shuffleDeck();
+            showEnemySelect();
+        }
+
+        function shuffleDeck() {
+            gameState.drawPile = [...gameState.deck];
+            for (let i = gameState.drawPile.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [gameState.drawPile[i], gameState.drawPile[j]] = [gameState.drawPile[j], gameState.drawPile[i]];
+            }
+        }
+
+        function showEnemySelect() {
+            // 清空上一场的敌人
+            gameState.enemies = [];
+            // 随机生成 1-2 个敌人，直接开始战斗
+            const enemyIds = Object.keys(ENEMY_DATABASE);
+            const enemyCount = Math.random() < 0.7 ? 1 : 2; // 70% 概率 1 个敌人，30% 概率 2 个
+            for (let i = 0; i < enemyCount; i++) {
+                const randomId = enemyIds[Math.floor(Math.random() * enemyIds.length)];
+                const enemy = ENEMY_DATABASE[randomId];
+                gameState.enemies.push({ ...enemy, id: randomId, block: 0, weak: 0, vulnerable: 0 });
+            }
+            startBattle();
+            addLog(`⚔️ 遭遇 ${gameState.enemies.length} 个敌人！`, 'system');
+        }
+
+        function startBattle() {
+            gameState.player.block = 0;
+            gameState.player.weak = 0;
+            gameState.player.vulnerable = 0;
+            gameState.turn = 1;
+            gameState.isPlayerTurn = true;
+            gameState.player.energy = gameState.player.maxEnergy;
+            gameState.enemies.forEach(enemy => {
+                enemy.intent = generateEnemyIntent(enemy);
+            });
+            drawCards(CONFIG.drawCardsPerTurn);
+            updateUI();
+            updateBuffIcons();
+        }
+
+        function drawCards(count) {
+            for (let i = 0; i < count; i++) {
+                if (gameState.drawPile.length === 0) {
+                    if (gameState.discardPile.length === 0) break;
+                    gameState.drawPile = [...gameState.discardPile];
+                    gameState.discardPile = [];
+                    shuffleDeck();
+                }
+                if (gameState.hand.length < CONFIG.maxHandSize) {
+                    gameState.hand.push(gameState.drawPile.pop());
+                }
+            }
+        }
+
+        function drawCard(cardId, x, y, scale = 1, clickable = true) {
+            const card = CARD_DATABASE[cardId];
+            const w = CONFIG.cardWidth * scale;
+            const h = CONFIG.cardHeight * scale;
+            const colors = {
+                common: ['#fff', '#ccc'],
+                rare: ['#4488ff', '#224488'],
+                epic: ['#aa44ff', '#552288']
+            };
+            const color = colors[card.rarity] || colors.common;
+            const gradient = ctx.createLinearGradient(x, y, x, y + h);
+            gradient.addColorStop(0, color[0]);
+            gradient.addColorStop(1, color[1]);
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.roundRect(x, y, w, h, 8 * scale);
+            ctx.fill();
+            ctx.fillStyle = '#2a2a4a';
+            ctx.beginPath();
+            ctx.roundRect(x + 5 * scale, y + 5 * scale, w - 10 * scale, h - 10 * scale, 5 * scale);
+            ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.font = `bold ${14 * scale}px sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.fillText(card.name, x + w / 2, y + 25 * scale);
+            ctx.font = `${30 * scale}px sans-serif`;
+            ctx.fillText({ attack: '⚔️', skill: '🛡️', power: '💪' }[card.type], x + w / 2, y + 65 * scale);
+            ctx.fillStyle = '#aaa';
+            ctx.font = `${11 * scale}px sans-serif`;
+            const words = card.desc.split(' ');
+            let line = '', lineY = y + 100 * scale;
+            words.forEach(word => {
+                const testLine = line + word + ' ';
+                if (ctx.measureText(testLine).width > w - 20 * scale) {
+                    ctx.fillText(line, x + w / 2, lineY);
+                    line = word + ' ';
+                    lineY += 14 * scale;
+                } else {
+                    line = testLine;
+                }
+            });
+            ctx.fillText(line, x + w / 2, lineY);
+            ctx.fillStyle = '#ffcc00';
+            ctx.font = `bold ${16 * scale}px sans-serif`;
+            ctx.fillText(`${card.cost}⚡`, x + w / 2, y + h - 15 * scale);
+            if (!clickable || gameState.player.energy < card.cost) {
+                ctx.globalAlpha = 0.5;
+            }
+        }
+
+        function drawEnemy(enemy, index, total) {
+            const spacing = total > 1 ? 250 : 0;
+            const centerX = canvas.width / 2 + (index - (total - 1) / 2) * spacing;
+            const y = 180;
+            ctx.save();
+            ctx.translate(centerX, y);
+            const float = Math.sin(Date.now() * 0.003 + index) * 3;
+            ctx.translate(0, float);
+            // 如果有卡牌正在拖动，显示敌人区域高亮
+            if (gameState.dragging && gameState.dragCardIndex >= 0) {
+                const cardId = gameState.hand[gameState.dragCardIndex];
+                const card = CARD_DATABASE[cardId];
+                if (card.type === 'attack') {
+                    ctx.shadowColor = 'rgba(255,100,100,0.8)';
+                    ctx.shadowBlur = 30;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 100, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(255,100,100,0.2)';
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                }
+            }
+            ctx.font = '90px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(enemy.image, 0, 0);
+            ctx.fillStyle = '#333';
+            ctx.fillRect(-70, 70, 140, 18);
+            const hpPercent = enemy.hp / enemy.maxHp;
+            const hpColor = hpPercent > 0.5 ? '#00ff00' : hpPercent > 0.25 ? '#ffff00' : '#ff0000';
+            ctx.fillStyle = hpColor;
+            ctx.fillRect(-68, 72, 136 * hpPercent, 14);
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 13px sans-serif';
+            ctx.fillText(`${enemy.hp}/${enemy.maxHp}`, 0, 85);
+            ctx.font = 'bold 18px sans-serif';
+            ctx.fillText(enemy.name, 0, -75);
+            if (enemy.intent) {
+                ctx.font = '28px sans-serif';
+                ctx.fillText('💭', 0, -155);
+                ctx.font = 'bold 14px sans-serif';
+                ctx.fillText(enemy.intent.text, 0, -130);
+            }
+            ctx.font = '35px sans-serif';
+            ctx.fillText('⚔️', 0, -110);
+            ctx.fillStyle = '#ff6666';
+            ctx.font = 'bold 16px sans-serif';
+            ctx.fillText(`${enemy.attack}`, 0, -80);
+            if (enemy.block > 0) {
+                ctx.fillStyle = '#88ccff';
+                ctx.font = 'bold 14px sans-serif';
+                ctx.fillText(`🛡️${enemy.block}`, 0, 105);
+            }
+            ctx.restore();
+        }
+
+        function drawPlayer() {
+            const x = 150, y = 400;
+            ctx.save();
+            ctx.translate(x, y);
+            const float = Math.sin(Date.now() * 0.003) * 3;
+            ctx.translate(0, float);
+            ctx.font = '80px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🛡️', 0, 0);
+            // 如果有卡牌正在拖动，显示玩家区域高亮
+            if (gameState.dragging && gameState.dragCardIndex >= 0) {
+                const cardId = gameState.hand[gameState.dragCardIndex];
+                const card = CARD_DATABASE[cardId];
+                if (card.type !== 'attack') {
+                    ctx.shadowColor = 'rgba(0,255,100,0.8)';
+                    ctx.shadowBlur = 30;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 100, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(0,255,100,0.2)';
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                }
+            }
+            ctx.fillStyle = '#333';
+            ctx.fillRect(-70, 60, 140, 18);
+            const hpPercent = gameState.player.hp / gameState.player.maxHp;
+            const hpColor = hpPercent > 0.5 ? '#00ff00' : hpPercent > 0.25 ? '#ffff00' : '#ff0000';
+            ctx.fillStyle = hpColor;
+            ctx.fillRect(-68, 62, 136 * hpPercent, 14);
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 13px sans-serif';
+            ctx.fillText(`${gameState.player.hp}/${gameState.player.maxHp}`, 0, 73);
+            ctx.font = 'bold 18px sans-serif';
+            ctx.fillText('骑士', 0, -75);
+            ctx.fillStyle = '#ffcc00';
+            ctx.font = 'bold 20px sans-serif';
+            ctx.fillText(`⚡${gameState.player.energy}/${gameState.player.maxEnergy}`, 0, 105);
+            if (gameState.player.block > 0) {
+                ctx.fillStyle = '#88ccff';
+                ctx.font = 'bold 16px sans-serif';
+                ctx.fillText(`🛡️${gameState.player.block}`, 0, 130);
+            }
+            ctx.restore();
+        }
+
+        function drawDragArrow() {
+            if (!gameState.dragging || gameState.dragCardIndex < 0) return;
+            const startX = gameState.dragStartX;
+            const startY = gameState.dragStartY;
+            const endX = gameState.dragCurrentX;
+            const endY = gameState.dragCurrentY;
+            const controlX = (startX + endX) / 2;
+            const controlY = Math.min(startY, endY) - 100;
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.quadraticCurveTo(controlX, controlY, endX, endY);
+            ctx.strokeStyle = 'rgba(255,200,0,0.8)';
+            ctx.lineWidth = 4;
+            ctx.setLineDash([10, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            const arrowSize = 15;
+            const angle = Math.atan2(endY - controlY, endX - controlX);
+            ctx.beginPath();
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(endX - arrowSize * Math.cos(angle - Math.PI / 6), endY - arrowSize * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(endX - arrowSize * Math.cos(angle + Math.PI / 6), endY - arrowSize * Math.sin(angle + Math.PI / 6));
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(255,200,0,0.8)';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(endX, endY, 10, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,200,0,0.3)';
+            ctx.fill();
+        }
+
+        function drawCardsArc() {
+            const handSize = gameState.hand.length;
+            if (handSize === 0) return;
+            const centerX = canvas.width / 2;
+            const baseY = canvas.height - CONFIG.cardHeight - 40;
+            const cardSpacing = CONFIG.cardWidth * 0.6 + 10;
+            const arcHeight = 60;
+            // 先绘制所有非悬停卡牌
+            for (let i = 0; i < handSize; i++) {
+                const cardId = gameState.hand[i];
+                const isHovered = i === gameState.hoveredCard && !gameState.dragging;
+                const isDragging = i === gameState.dragCardIndex;
+                if (isDragging || isHovered) continue;
+                const t = handSize > 1 ? i / (handSize - 1) : 0.5;
+                const xPos = centerX + (i - (handSize - 1) / 2) * cardSpacing;
+                const arcOffset = Math.sin(t * Math.PI) * arcHeight;
+                const cardY = baseY - arcOffset;
+                const rotation = (t - 0.5) * 0.4;
+                const scale = 1;
+                ctx.save();
+                ctx.translate(xPos, cardY);
+                ctx.rotate(rotation);
+                drawCard(cardId, -CONFIG.cardWidth / 2, -CONFIG.cardHeight / 2, scale, gameState.isPlayerTurn && !gameState.gameOver);
+                ctx.restore();
+            }
+            // 最后绘制悬停卡牌（在最上层）
+            if (gameState.hoveredCard >= 0 && !gameState.dragging) {
+                const i = gameState.hoveredCard;
+                const cardId = gameState.hand[i];
+                const t = handSize > 1 ? i / (handSize - 1) : 0.5;
+                const xPos = centerX + (i - (handSize - 1) / 2) * cardSpacing;
+                const arcOffset = Math.sin(t * Math.PI) * arcHeight;
+                const cardY = baseY - arcOffset - 60;
+                const rotation = (t - 0.5) * 0.4;
+                const scale = 1.25;
+                ctx.save();
+                ctx.translate(xPos, cardY);
+                ctx.rotate(rotation);
+                ctx.shadowColor = 'rgba(255,255,255,0.9)';
+                ctx.shadowBlur = 30;
+                drawCard(cardId, -CONFIG.cardWidth * scale / 2, -CONFIG.cardHeight * scale / 2, scale, true);
+                ctx.restore();
+            }
+            // 绘制拖动中的卡牌
+            if (gameState.dragging && gameState.dragCardIndex >= 0) {
+                const cardId = gameState.hand[gameState.dragCardIndex];
+                drawCard(cardId, gameState.dragCurrentX - CONFIG.cardWidth * 0.6 / 2, gameState.dragCurrentY - CONFIG.cardHeight * 0.6 / 2, 0.6, true);
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            gameState.enemies.forEach((enemy, i) => drawEnemy(enemy, i, gameState.enemies.length));
+            drawPlayer();
+            drawCardsArc();
+            drawDragArrow();
+            requestAnimationFrame(draw);
+        }
+
+        function playCardOnEnemy(cardIndex, enemyIndex) {
+            if (!gameState.isPlayerTurn || gameState.gameOver) return;
+            const cardId = gameState.hand[cardIndex];
+            const card = CARD_DATABASE[cardId];
+            if (gameState.player.energy < card.cost) {
+                addLog('❌ 能量不足！', 'player');
+                return;
+            }
+            gameState.player.energy -= card.cost;
+            const targetEnemy = gameState.enemies[enemyIndex];
+            if (card.effect.damage) {
+                let damage = card.effect.damage;
+                if (card.effect.execute && targetEnemy.hp < targetEnemy.maxHp * 0.3) {
+                    damage *= 2;
+                    addLog('💥 终结技伤害翻倍！', 'player');
+                }
+                if (gameState.player.weak > 0) damage = Math.floor(damage * 0.75);
+                if (card.effect.hitCount) {
+                    for (let i = 0; i < card.effect.hitCount; i++) {
+                        let dmg = damage;
+                        if (targetEnemy.vulnerable > 0) dmg = Math.floor(dmg * 1.5);
+                        targetEnemy.hp -= dmg;
+                    }
+                    addLog(`⚔️ 对 ${targetEnemy.name} 造成 ${damage}×${card.effect.hitCount} 点伤害！`, 'player');
+                } else if (card.effect.all) {
+                    gameState.enemies.forEach(enemy => {
+                        let dmg = damage;
+                        if (enemy.vulnerable > 0) dmg = Math.floor(dmg * 1.5);
+                        enemy.hp -= dmg;
+                    });
+                    addLog(`⚔️ 对所有敌人造成 ${damage} 点伤害！`, 'player');
+                } else {
+                    let dmg = damage;
+                    if (targetEnemy.vulnerable > 0) dmg = Math.floor(dmg * 1.5);
+                    targetEnemy.hp -= dmg;
+                    addLog(`⚔️ 对 ${targetEnemy.name} 造成 ${dmg} 点伤害！`, 'player');
+                }
+            }
+            if (card.effect.block) {
+                gameState.player.block += card.effect.block;
+                addLog(`🛡️ 获得 ${card.effect.block} 点护甲`, 'player');
+            }
+            if (card.effect.draw) {
+                drawCards(card.effect.draw);
+                addLog(`📖 抽 ${card.effect.draw} 张牌`, 'player');
+            }
+            if (card.effect.energy) {
+                gameState.player.energy += card.effect.energy;
+                addLog(`⚡ 获得 ${card.effect.energy} 点能量`, 'player');
+            }
+            if (card.effect.hpLoss) {
+                gameState.player.hp -= card.effect.hpLoss;
+                addLog(`💔 失去 ${card.effect.hpLoss} HP`, 'player');
+            }
+            if (card.effect.weak) {
+                targetEnemy.weak = Math.max(targetEnemy.weak, card.effect.weak);
+                addLog(`💢 对 ${targetEnemy.name} 施加 ${card.effect.weak} 层虚弱`, 'player');
+            }
+            if (card.effect.power) {
+                if (!gameState.player.powers.includes(cardId)) {
+                    gameState.player.powers.push(cardId);
+                    addLog(`💪 获得能力：${card.name}`, 'player');
+                }
+            }
+            gameState.hand.splice(cardIndex, 1);
+            gameState.discardPile.push(cardId);
+            updateUI();
+            updateBuffIcons();
+            checkBattleEnd();
+        }
+
+        function playCardOnSelf(cardIndex) {
+            if (!gameState.isPlayerTurn || gameState.gameOver) return;
+            const cardId = gameState.hand[cardIndex];
+            const card = CARD_DATABASE[cardId];
+            if (gameState.player.energy < card.cost) {
+                addLog('❌ 能量不足！', 'player');
+                return;
+            }
+            gameState.player.energy -= card.cost;
+            if (card.effect.block) {
+                gameState.player.block += card.effect.block;
+                addLog(`🛡️ 获得 ${card.effect.block} 点护甲`, 'player');
+            }
+            if (card.effect.draw) {
+                drawCards(card.effect.draw);
+                addLog(`📖 抽 ${card.effect.draw} 张牌`, 'player');
+            }
+            if (card.effect.energy) {
+                gameState.player.energy += card.effect.energy;
+                addLog(`⚡ 获得 ${card.effect.energy} 点能量`, 'player');
+            }
+            if (card.effect.hpLoss) {
+                gameState.player.hp -= card.effect.hpLoss;
+                addLog(`💔 失去 ${card.effect.hpLoss} HP`, 'player');
+            }
+            if (card.effect.power) {
+                if (!gameState.player.powers.includes(cardId)) {
+                    gameState.player.powers.push(cardId);
+                    addLog(`💪 获得能力：${card.name}`, 'player');
+                }
+            }
+            gameState.hand.splice(cardIndex, 1);
+            gameState.discardPile.push(cardId);
+            updateUI();
+            updateBuffIcons();
+        }
+
+        function playCard(index) {
+            if (!gameState.isPlayerTurn || gameState.gameOver) return;
+            playCardOnEnemy(index, 0);
+        }
+
+        function endTurn() {
+            if (!gameState.isPlayerTurn || gameState.gameOver) return;
+            gameState.discardPile.push(...gameState.hand);
+            gameState.hand = [];
+            gameState.isPlayerTurn = false;
+            document.getElementById('end-turn-btn').disabled = true;
+            setTimeout(enemyAction, 800);
+        }
+
+        function generateEnemyIntent(enemy) {
+            const actions = [
+                { text: `攻击 ${enemy.attack}`, icon: '⚔️', type: 'attack' },
+                { text: '防御', icon: '🛡️', type: 'defend' },
+                { text: '强化', icon: '💪', type: 'buff' }
+            ];
+            if (enemy.id === 'lich') actions.push({ text: '施加虚弱', icon: '💢', type: 'weak' });
+            if (enemy.id === 'golemKing') actions.push({ text: '获得护甲', icon: '🛡️', type: 'block' });
+            return actions[Math.floor(Math.random() * actions.length)];
+        }
+
+        function enemyAction() {
+            if (gameState.gameOver) return;
+            gameState.enemies.forEach(enemy => {
+                if (enemy.hp <= 0) return;
+                let damage = enemy.attack;
+                if (enemy.weak > 0) damage = Math.floor(damage * 0.75);
+                if (gameState.player.vulnerable > 0) damage = Math.floor(damage * 1.5);
+                if (enemy.intent && enemy.intent.type === 'weak') {
+                    gameState.player.weak = Math.max(gameState.player.weak, 2);
+                    addLog(`💢 ${enemy.name} 施加 2 层虚弱！`, 'enemy');
+                }
+                if (enemy.intent && enemy.intent.type === 'block') {
+                    enemy.block += 10;
+                    addLog(`🛡️ ${enemy.name} 获得 10 护甲！`, 'enemy');
+                }
+                const blocked = Math.min(damage, gameState.player.block);
+                gameState.player.block -= blocked;
+                const actual = damage - blocked;
+                if (blocked > 0) addLog(`🛡️ 格挡 ${blocked} 点伤害`, 'player');
+                gameState.player.hp -= actual;
+                addLog(`💥 ${enemy.name} 造成 ${actual} 点伤害！`, 'enemy');
+            });
+            if (gameState.player.hp <= 0) {
+                endGame(false);
+                return;
+            }
+            setTimeout(() => {
+                gameState.player.block = 0;
+                addLog('🔄 新回合开始，护甲刷新', 'system');
+                gameState.turn++;
+                gameState.isPlayerTurn = true;
+                gameState.player.energy = gameState.player.maxEnergy;
+                if (gameState.player.powers.includes('fanatic')) gameState.player.energy++;
+                if (gameState.player.powers.includes('vitality')) {
+                    gameState.player.hp = Math.min(gameState.player.maxHp, gameState.player.hp + 3);
+                    addLog('💚 活力回复 3HP', 'player');
+                }
+                gameState.enemies.forEach(enemy => {
+                    if (enemy.hp > 0) enemy.intent = generateEnemyIntent(enemy);
+                });
+                drawCards(CONFIG.drawCardsPerTurn);
+                document.getElementById('end-turn-btn').disabled = false;
+                updateUI();
+                updateBuffIcons();
+            }, 1000);
+        }
+
+        function checkBattleEnd() {
+            if (gameState.enemies.every(e => e.hp <= 0)) {
+                const gold = Math.floor(Math.random() * 30) + 20;
+                gameState.gold += gold;
+                addLog(`🎉 胜利！获得 ${gold} 金币`, 'system');
+                setTimeout(showReward, 1000);
+            } else if (gameState.player.hp <= 0) {
+                endGame(false);
+            }
+        }
+
+        function showReward() {
+            const cardIds = Object.keys(CARD_DATABASE).filter(id => !gameState.deck.includes(id));
+            const shuffled = cardIds.sort(() => Math.random() - 0.5).slice(0, 3);
+            const container = document.getElementById('reward-cards');
+            container.innerHTML = '';
+            shuffled.forEach(cardId => {
+                const card = CARD_DATABASE[cardId];
+                const el = document.createElement('div');
+                el.className = `reward-card ${card.rarity}`;
+                el.innerHTML = `<div class="reward-card-internal"><div class="reward-card-name">${card.name}</div><div class="reward-card-type">${{ attack: '⚔️', skill: '🛡️', power: '💪' }[card.type]}</div><div class="reward-card-desc">${card.desc}</div><div class="reward-card-rarity">${{ common: '普通', rare: '稀有', epic: '史诗' }[card.rarity]}</div></div>`;
+                el.onclick = () => selectReward(cardId);
+                container.appendChild(el);
+            });
+            document.getElementById('reward-overlay').classList.add('show');
+        }
+
+        function selectReward(cardId) {
+            gameState.deck.push(cardId);
+            gameState.cardsCollected++;
+            addLog(`📦 获得：${CARD_DATABASE[cardId].name}`, 'system');
+            document.getElementById('reward-overlay').classList.remove('show');
+            showPathSelect();
+        }
+
+        function startBoss() {
+            const bossIds = Object.keys(BOSS_ENEMIES);
+            const bossId = bossIds[Math.floor(Math.random() * bossIds.length)];
+            const boss = BOSS_ENEMIES[bossId];
+            gameState.enemies = [{ ...boss, id: bossId, block: 0, weak: 0, vulnerable: 0 }];
+            gameState.floor++;
+            startBattle();
+            addLog(`👹 BOSS 战：${boss.name}`, 'system');
+        }
+
+        function showPathSelect() {
+            if (gameState.floor >= gameState.maxFloors) {
+                startBoss();
+                return;
+            }
+            const grid = document.getElementById('path-grid');
+            grid.innerHTML = '';
+            const nodeCount = Math.floor(Math.random() * 2) + 2;
+            const nodeTypes = ['battle', 'battle', 'elite', 'rest', 'shop'];
+            const shuffled = nodeTypes.sort(() => Math.random() - 0.5).slice(0, nodeCount);
+            shuffled.forEach((type, index) => {
+                const node = document.createElement('div');
+                node.className = `path-node ${type}`;
+                const nodeData = getPathNodeData(type);
+                node.innerHTML = `<div class="path-node-icon">${nodeData.icon}</div><div class="path-node-name">${nodeData.name}</div><div class="path-node-desc">${nodeData.desc}</div>`;
+                node.onclick = () => selectPath(type);
+                grid.appendChild(node);
+            });
+            document.getElementById('path-select-overlay').classList.add('show');
+        }
+
+        function getPathNodeData(type) {
+            const data = {
+                battle: { icon: '⚔️', name: '普通战斗', desc: '遭遇 1-2 个敌人' },
+                elite: { icon: '💀', name: '精英战斗', desc: '遭遇强力敌人' },
+                rest: { icon: '🔥', name: '休息点', desc: '回复 15HP' },
+                shop: { icon: '💰', name: '商店', desc: '购买卡牌' },
+                boss: { icon: '👹', name: 'BOSS', desc: '楼层首领' }
+            };
+            return data[type] || data.battle;
+        }
+
+        function selectPath(type) {
+            document.getElementById('path-select-overlay').classList.remove('show');
+            if (type === 'rest') {
+                gameState.player.hp = Math.min(gameState.player.maxHp, gameState.player.hp + 15);
+                addLog('💚 休息点回复 15HP', 'system');
+                updateUI();
+            } else if (type === 'shop') {
+                addLog('💰 商店功能开发中...', 'system');
+            } else if (type === 'elite') {
+                addLog('💀 精英战开发中...', 'system');
+                showEnemySelect();
+                return;
+            }
+            setTimeout(() => showEnemySelect(), 1000);
+        }
+
+        function endGame(victory) {
+            gameState.gameOver = true;
+            const overlay = document.getElementById('gameover-overlay');
+            const title = document.getElementById('gameover-title');
+            const stats = document.getElementById('gameover-stats');
+            if (victory) {
+                title.textContent = '🎉 胜利！';
+                title.className = 'victory';
+            } else {
+                title.textContent = '💀 失败';
+                title.className = 'defeat';
+            }
+            stats.innerHTML = `到达层数：${gameState.floor}<br>收集卡牌：${gameState.cardsCollected}张<br>剩余金币：${gameState.gold}`;
+            overlay.classList.add('show');
+        }
+
+        function updateUI() {
+            document.getElementById('floor-display').textContent = `📍 第 ${gameState.floor} 层`;
+            document.getElementById('turn-counter').textContent = `回合：${gameState.turn}`;
+            document.getElementById('gold-display').textContent = `💰 ${gameState.gold} 金币`;
+        }
+
+        function updateBuffIcons() {
+            const container = document.getElementById('player-buffs');
+            container.innerHTML = '';
+            if (gameState.player.weak > 0) {
+                container.innerHTML += `<div class="buff-icon">💢<span class="count">${gameState.player.weak}</span></div>`;
+            }
+        }
+
+        function addLog(msg, cls = '') {
+            const log = document.getElementById('battle-log');
+            const p = document.createElement('p');
+            p.textContent = msg;
+            if (cls) p.className = cls;
+            log.appendChild(p);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function toggleLog() {
+            gameState.logCollapsed = !gameState.logCollapsed;
+            document.getElementById('battle-log').classList.toggle('collapsed');
+            document.getElementById('log-toggle').textContent = gameState.logCollapsed ? '▶' : '▼';
+        }
+
+        canvas.addEventListener('mousedown', e => {
+            if (!gameState.isPlayerTurn || gameState.gameOver || gameState.dragging) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const handSize = gameState.hand.length;
+            if (handSize === 0) return;
+            const centerX = canvas.width / 2;
+            const baseY = canvas.height - CONFIG.cardHeight - 40;
+            const cardSpacing = CONFIG.cardWidth * 0.6 + 10;
+            const arcHeight = 60;
+            for (let i = 0; i < handSize; i++) {
+                const t = handSize > 1 ? i / (handSize - 1) : 0.5;
+                const xPos = centerX + (i - (handSize - 1) / 2) * cardSpacing;
+                const arcOffset = Math.sin(t * Math.PI) * arcHeight;
+                const cardY = baseY - arcOffset;
+                const cardW = CONFIG.cardWidth;
+                const cardH = CONFIG.cardHeight;
+                if (x >= xPos - cardW / 2 - 15 && x <= xPos + cardW / 2 + 15 && y >= cardY - cardH / 2 - 15 && y <= cardY + cardH / 2 + 60) {
+                    const card = gameState.hand[i];
+                    const cardData = CARD_DATABASE[card];
+                    if (gameState.player.energy >= cardData.cost) {
+                        gameState.dragging = true;
+                        gameState.dragCardIndex = i;
+                        gameState.dragStartX = x;
+                        gameState.dragStartY = y;
+                        gameState.dragCurrentX = x;
+                        gameState.dragCurrentY = y;
+                        return;
+                    }
+                }
+            }
+        });
+
+        canvas.addEventListener('mousemove', e => {
+            if (gameState.gameOver) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            if (gameState.dragging) {
+                gameState.dragCurrentX = x;
+                gameState.dragCurrentY = y;
+                return;
+            }
+            const handSize = gameState.hand.length;
+            if (handSize === 0) {
+                gameState.hoveredCard = -1;
+                canvas.style.cursor = 'default';
+                return;
+            }
+            const centerX = canvas.width / 2;
+            const baseY = canvas.height - CONFIG.cardHeight - 40;
+            const cardSpacing = CONFIG.cardWidth * 0.6 + 10;
+            const arcHeight = 60;
+            let hovered = -1;
+            for (let i = 0; i < handSize; i++) {
+                const t = handSize > 1 ? i / (handSize - 1) : 0.5;
+                const xPos = centerX + (i - (handSize - 1) / 2) * cardSpacing;
+                const arcOffset = Math.sin(t * Math.PI) * arcHeight;
+                const cardY = baseY - arcOffset;
+                const cardW = CONFIG.cardWidth;
+                const cardH = CONFIG.cardHeight;
+                if (x >= xPos - cardW / 2 - 15 && x <= xPos + cardW / 2 + 15 && y >= cardY - cardH / 2 - 15 && y <= cardY + cardH / 2 + 60) {
+                    hovered = i;
+                }
+            }
+            gameState.hoveredCard = hovered;
+            canvas.style.cursor = hovered >= 0 && gameState.isPlayerTurn ? 'pointer' : 'default';
+        });
+
+        canvas.addEventListener('mouseup', e => {
+            if (!gameState.dragging) return;
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const cardId = gameState.hand[gameState.dragCardIndex];
+            const card = CARD_DATABASE[cardId];
+            // 检测是否拖到玩家身上（左侧）
+            const playerX = 150, playerY = 400;
+            const onPlayer = (x >= playerX - 80 && x <= playerX + 80 && y >= playerY - 80 && y <= playerY + 150);
+            // 检测是否拖到敌人身上
+            let targetEnemy = -1;
+            gameState.enemies.forEach((enemy, i) => {
+                const spacing = gameState.enemies.length > 1 ? 250 : 0;
+                const centerX = canvas.width / 2 + (i - (gameState.enemies.length - 1) / 2) * spacing;
+                const enemyY = 180;
+                if (x >= centerX - 60 && x <= centerX + 60 && y >= enemyY - 80 && y <= enemyY + 100) {
+                    targetEnemy = i;
+                }
+            });
+            // 根据卡牌类型决定目标
+            if (card.type === 'attack' && targetEnemy >= 0) {
+                playCardOnEnemy(gameState.dragCardIndex, targetEnemy);
+            } else if ((card.type === 'skill' || card.type === 'power') && onPlayer) {
+                playCardOnSelf(gameState.dragCardIndex);
+            } else if (targetEnemy >= 0) {
+                playCardOnEnemy(gameState.dragCardIndex, targetEnemy);
+            } else if (onPlayer) {
+                playCardOnSelf(gameState.dragCardIndex);
+            }
+            gameState.dragging = false;
+            gameState.dragCardIndex = -1;
+        });
+
+        window.addEventListener('keydown', e => {
+            if (e.code === 'KeyE' || e.code === 'Space') endTurn();
+        });
+
+        document.getElementById('skip-btn').onclick = () => {
+            document.getElementById('reward-overlay').classList.remove('show');
+            showPathSelect();
+        };
+
+        document.getElementById('restart-btn').onclick = initGame;
+
+        initGame();
+        draw();
+    </script>
+</body>
+</html>

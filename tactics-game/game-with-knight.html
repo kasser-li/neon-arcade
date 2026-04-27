@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D 战棋 - 骑士版</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #0a0a15 0%, #1a1a2e 100%);
+            overflow: hidden;
+            font-family: sans-serif;
+        }
+        #container { width: 100vw; height: 100vh; }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #fff;
+            background: rgba(0,0,0,0.7);
+            padding: 20px 25px;
+            border-radius: 12px;
+            border: 1px solid #444;
+            z-index: 100;
+        }
+        #ui h1 { 
+            font-size: 1.4em; 
+            margin-bottom: 12px;
+            background: linear-gradient(45deg, #ffd700, #ffaa00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        #ui p { color: #888; font-size: 0.85em; margin: 6px 0; }
+        #turn-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 100;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+        .player-turn { background: linear-gradient(45deg, #0066ff, #00ccff); }
+        .enemy-turn { background: linear-gradient(45deg, #ff0066, #ff6600); }
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 200;
+            background: rgba(0,0,0,0.9);
+            padding: 40px 60px;
+            border-radius: 15px;
+            text-align: center;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #333;
+            border-top-color: #ffd700;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <div id="ui">
+        <h1>⚔️ 3D 战棋</h1>
+        <p>🖱️ 左键 - 选择/移动</p>
+        <p>🖱️ 右键 - 旋转视角</p>
+        <p>🖱️ 滚轮 - 缩放</p>
+        <p>绿色 = 可移动范围</p>
+        <p>红色 = 敌人</p>
+    </div>
+    <div id="turn-indicator" class="player-turn">你的回合</div>
+    <div id="loading">
+        <div class="spinner"></div>
+        <p>加载骑士模型...</p>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'https://esm.sh/three@0.160.0';
+        import { OrbitControls } from 'https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+        import { GLTFLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+
+        // ========== 游戏状态 ==========
+        const state = {
+            isPlayerTurn: true,
+            gameOver: false,
+            gridSize: 8,
+            cellSize: 2,
+            moveRange: 3,
+            player: { x: 2, y: 2, hp: 100, mesh: null },
+            enemy: { x: 5, y: 5, hp: 100, mesh: null }
+        };
+
+        // ========== Three.js 场景 ==========
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0a15);
+        scene.fog = new THREE.FogExp2(0x0a0a15, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(0, 15, 12);
+        camera.lookAt(0, 0, 0);
+        
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
+        document.getElementById('container').appendChild(renderer.domElement);
+
+        // 控制器
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.target.set(0, 0, 0);
+        controls.minDistance = 5;
+        controls.maxDistance = 30;
+        controls.maxPolarAngle = Math.PI / 2.2;
+
+        // ========== 灯光 ==========
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+        scene.add(ambientLight);
+
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+        dirLight.position.set(5, 10, 5);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.width = 2048;
+        dirLight.shadow.mapSize.height = 2048;
+        scene.add(dirLight);
+
+        const rimLight = new THREE.DirectionalLight(0x4488ff, 0.5);
+        rimLight.position.set(-5, 5, -5);
+        scene.add(rimLight);
+
+        // ========== 地面网格 ==========
+        const gridGroup = new THREE.Group();
+        const cells = [];
+        const cellMeshes = [];
+
+        function createGrid() {
+            const offset = (state.gridSize - 1) * state.cellSize / 2;
+
+            for (let x = 0; x < state.gridSize; x++) {
+                cells[x] = [];
+                for (let y = 0; y < state.gridSize; y++) {
+                    // 地板
+                    const geometry = new THREE.BoxGeometry(state.cellSize * 0.95, 0.2, state.cellSize * 0.95);
+                    const material = new THREE.MeshStandardMaterial({ 
+                        color: 0x1a1a2e,
+                        roughness: 0.8
+                    });
+                    const cell = new THREE.Mesh(geometry, material);
+                    cell.position.set(
+                        x * state.cellSize - offset,
+                        -0.1,
+                        y * state.cellSize - offset
+                    );
+                    cell.receiveShadow = true;
+                    cell.userData = { x, y, type: 'cell' };
+                    gridGroup.add(cell);
+                    cells[x][y] = cell;
+                    cellMeshes.push(cell);
+                }
+            }
+            scene.add(gridGroup);
+        }
+
+        // ========== 加载骑士模型 ==========
+        const loader = new GLTFLoader();
+        
+        // 注意：这里需要一个实际的 GLB 文件路径
+        // 如果你有导出的 knight.glb，放到同一目录下
+        // 或者使用在线模型 URL
+        
+        function createPlaceholderKnight(color, isPlayer) {
+            // 临时用简单几何体代替，等 GLB 加载后再替换
+            const group = new THREE.Group();
+            
+            // 身体
+            const body = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.3, 0.4, 1.2, 8),
+                new THREE.MeshStandardMaterial({ 
+                    color: color,
+                    metalness: 0.8,
+                    roughness: 0.2
+                })
+            );
+            body.position.y = 0.6;
+            body.castShadow = true;
+            group.add(body);
+            
+            // 头
+            const head = new THREE.Mesh(
+                new THREE.SphereGeometry(0.35, 16, 16),
+                new THREE.MeshStandardMaterial({ color: 0xffccaa })
+            );
+            head.position.y = 1.4;
+            head.castShadow = true;
+            group.add(head);
+            
+            // 武器（发光）
+            const weapon = new THREE.Mesh(
+                new THREE.BoxGeometry(0.1, 1.5, 0.1),
+                new THREE.MeshStandardMaterial({ 
+                    color: isPlayer ? 0x00ffff : 0xff6600,
+                    emissive: isPlayer ? 0x0044aa : 0xaa4400,
+                    emissiveIntensity: 0.5
+                })
+            );
+            weapon.position.set(isPlayer ? 0.5 : -0.5, 1, 0.3);
+            weapon.rotation.z = isPlayer ? -0.3 : 0.3;
+            weapon.castShadow = true;
+            group.add(weapon);
+            
+            // 血条背景
+            const hpBg = new THREE.Mesh(
+                new THREE.PlaneGeometry(1, 0.15),
+                new THREE.MeshBasicMaterial({ color: 0x000000 })
+            );
+            hpBg.position.y = 2;
+            hpBg.rotation.x = -Math.PI / 6;
+            group.add(hpBg);
+            
+            // 血条
+            const hpBar = new THREE.Mesh(
+                new THREE.PlaneGeometry(0.9, 0.1),
+                new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+            );
+            hpBar.position.set(-0.45 + 0.45, 2, 0.01);
+            hpBar.rotation.x = -Math.PI / 6;
+            hpBar.userData = { isHpBar: true };
+            group.add(hpBar);
+            
+            return group;
+        }
+
+        // 创建玩家和敌人
+        function createCharacters() {
+            // 玩家（蓝色）
+            state.player.mesh = createPlaceholderKnight(0x0066ff, true);
+            updateCharacterPosition(state.player.mesh, state.player.x, state.player.y);
+            scene.add(state.player.mesh);
+
+            // 敌人（红色）
+            state.enemy.mesh = createPlaceholderKnight(0xff3333, false);
+            updateCharacterPosition(state.enemy.mesh, state.enemy.x, state.enemy.y);
+            scene.add(state.enemy.mesh);
+            
+            // 隐藏加载提示
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function updateCharacterPosition(mesh, x, y) {
+            const offset = (state.gridSize - 1) * state.cellSize / 2;
+            mesh.position.set(
+                x * state.cellSize - offset,
+                0,
+                y * state.cellSize - offset
+            );
+        }
+
+        function updateHpBar(mesh, hp) {
+            const hpBar = mesh.children.find(c => c.userData.isHpBar);
+            if (hpBar) {
+                hpBar.scale.x = hp / 100;
+                hpBar.material.color.setHex(hp > 50 ? 0x00ff00 : hp > 25 ? 0xffff00 : 0xff0000);
+            }
+        }
+
+        // ========== 移动范围显示 ==========
+        let moveIndicators = [];
+
+        function showMoveRange() {
+            clearMoveRange();
+            if (!state.isPlayerTurn || state.gameOver) return;
+
+            const px = state.player.x;
+            const py = state.player.y;
+
+            for (let x = 0; x < state.gridSize; x++) {
+                for (let y = 0; y < state.gridSize; y++) {
+                    const dist = Math.abs(x - px) + Math.abs(y - py);
+                    if (dist > 0 && dist <= state.moveRange) {
+                        const geo = new THREE.RingGeometry(0.3, 0.5, 16);
+                        const mat = new THREE.MeshBasicMaterial({ 
+                            color: 0x00ff00,
+                            transparent: true,
+                            opacity: 0.6,
+                            side: THREE.DoubleSide
+                        });
+                        const indicator = new THREE.Mesh(geo, mat);
+                        const offset = (state.gridSize - 1) * state.cellSize / 2;
+                        indicator.position.set(
+                            x * state.cellSize - offset,
+                            0.05,
+                            y * state.cellSize - offset
+                        );
+                        indicator.rotation.x = -Math.PI / 2;
+                        indicator.userData = { x, y, type: 'move' };
+                        scene.add(indicator);
+                        moveIndicators.push(indicator);
+
+                        cells[x][y].material.color.setHex(0x225522);
+                    }
+                }
+            }
+        }
+
+        function clearMoveRange() {
+            moveIndicators.forEach(m => scene.remove(m));
+            moveIndicators = [];
+            for (let x = 0; x < state.gridSize; x++) {
+                for (let y = 0; y < state.gridSize; y++) {
+                    cells[x][y].material.color.setHex(0x1a1a2e);
+                }
+            }
+        }
+
+        // ========== 游戏逻辑 ==========
+        function getDistance(a, b) {
+            return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+        }
+
+        function attack(attacker, target, isPlayer) {
+            const damage = Math.floor(Math.random() * 20) + 20;
+            target.hp -= damage;
+            
+            if (isPlayer) {
+                updateHpBar(enemyMesh, target.hp);
+            } else {
+                updateHpBar(playerMesh, target.hp);
+            }
+
+            showMessage(`${isPlayer ? '你' : '敌人'} 造成了 ${damage} 点伤害！`);
+
+            if (target.hp <= 0) {
+                endGame(isPlayer ? '🎉 你赢了！' : '💀 你输了...');
+            }
+        }
+
+        function endGame(message) {
+            state.gameOver = true;
+            showMessage(message);
+            document.getElementById('turn-indicator').textContent = message;
+        }
+
+        function showMessage(text) {
+            const indicator = document.getElementById('turn-indicator');
+            indicator.textContent = text;
+            setTimeout(() => {
+                if (!state.gameOver) {
+                    indicator.textContent = state.isPlayerTurn ? '你的回合' : '敌人回合';
+                    indicator.className = state.isPlayerTurn ? 'player-turn' : 'enemy-turn';
+                }
+            }, 2000);
+        }
+
+        function switchTurn() {
+            state.isPlayerTurn = !state.isPlayerTurn;
+            const indicator = document.getElementById('turn-indicator');
+            
+            if (state.isPlayerTurn) {
+                indicator.textContent = '你的回合';
+                indicator.className = 'player-turn';
+                showMoveRange();
+            } else {
+                indicator.textContent = '敌人回合';
+                indicator.className = 'enemy-turn';
+                clearMoveRange();
+                setTimeout(enemyTurn, 1000);
+            }
+        }
+
+        // 敌人 AI
+        function enemyTurn() {
+            if (state.gameOver) return;
+
+            const dist = getDistance(state.enemy, state.player);
+
+            if (dist === 1) {
+                attack(state.enemy, state.player, false);
+            } else {
+                // 向玩家移动
+                let bestMove = null;
+                let bestDist = dist;
+
+                for (let x = 0; x < state.gridSize; x++) {
+                    for (let y = 0; y < state.gridSize; y++) {
+                        const moveDist = Math.abs(x - state.enemy.x) + Math.abs(y - state.enemy.y);
+                        if (moveDist > 0 && moveDist <= state.moveRange) {
+                            const newDist = Math.abs(x - state.player.x) + Math.abs(y - state.player.y);
+                            if (newDist < bestDist) {
+                                bestDist = newDist;
+                                bestMove = { x, y };
+                            }
+                        }
+                    }
+                }
+
+                if (bestMove) {
+                    state.enemy.x = bestMove.x;
+                    state.enemy.y = bestMove.y;
+                    updateCharacterPosition(state.enemy.mesh, bestMove.x, bestMove.y);
+                    
+                    if (bestDist === 1) {
+                        setTimeout(() => attack(state.enemy, state.player, false), 500);
+                    }
+                }
+            }
+
+            setTimeout(switchTurn, 1500);
+        }
+
+        // ========== 点击交互 ==========
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        window.addEventListener('click', (event) => {
+            if (!state.isPlayerTurn || state.gameOver) return;
+
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(scene.children, true);
+
+            for (const hit of intersects) {
+                const obj = hit.object;
+                
+                if (obj.userData.type === 'move') {
+                    const { x, y } = obj.userData;
+                    state.player.x = x;
+                    state.player.y = y;
+                    updateCharacterPosition(state.player.mesh, x, y);
+                    
+                    if (getDistance(state.player, state.enemy) === 1) {
+                        attack(state.player, state.enemy, true);
+                    }
+                    
+                    switchTurn();
+                    break;
+                }
+            }
+        });
+
+        // ========== 窗口调整 ==========
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // ========== 初始化 ==========
+        createGrid();
+        createCharacters();
+        showMoveRange();
+
+        // ========== 渲染循环 ==========
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const time = Date.now() * 0.001;
+            
+            // 角色待机动画
+            if (state.player.mesh) {
+                state.player.mesh.position.y = Math.sin(time * 2) * 0.05;
+                state.player.mesh.rotation.y = Math.sin(time * 0.5) * 0.05;
+            }
+            if (state.enemy.mesh) {
+                state.enemy.mesh.position.y = Math.sin(time * 2 + 1) * 0.05;
+                state.enemy.mesh.rotation.y = Math.sin(time * 0.5 + 1) * 0.05;
+            }
+            
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        animate();
+
+        console.log('⚔️ 战棋游戏已加载！');
+        console.log('🎮 点击绿色格子移动，靠近敌人自动攻击');
+    </script>
+</body>
+</html>

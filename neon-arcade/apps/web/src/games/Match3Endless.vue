@@ -12,7 +12,29 @@
           <span class="label">最高分</span>
           <span class="value">{{ highScore }}</span>
         </div>
+        <div class="score-item">
+          <span class="label">金币</span>
+          <span class="value coins">{{ coins }}</span>
+        </div>
       </div>
+    </div>
+    
+    <!-- 道具栏 -->
+    <div class="powerup-bar">
+      <button 
+        v-for="powerUp in availablePowerUps" 
+        :key="powerUp.id"
+        class="powerup-btn"
+        :class="{ 'active': activePowerUp === powerUp.id, 'disabled': shopStore.getPowerUpCount(powerUp.id) <= 0 }"
+        @click="selectPowerUp(powerUp.id)"
+        :disabled="shopStore.getPowerUpCount(powerUp.id) <= 0 || isProcessing"
+      >
+        <span class="powerup-icon">{{ powerUp.icon }}</span>
+        <span class="powerup-count">{{ shopStore.getPowerUpCount(powerUp.id) }}</span>
+      </button>
+      <button class="powerup-btn shop" @click="goToShop">
+        🛒 商店
+      </button>
     </div>
     
     <!-- 连击显示 - 绝对定位，不占用文档流 -->
@@ -72,8 +94,17 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useMatch3ShopStore, POWER_UPS, type PowerUpType } from '../stores/match3Shop'
 
 const router = useRouter()
+const shopStore = useMatch3ShopStore()
+
+// 道具系统
+const coins = ref(0)
+const activePowerUp = ref<PowerUpType | null>(null)
+const earnedCoins = ref(0) // 本局获得的金币
+
+const availablePowerUps = computed(() => POWER_UPS.filter(p => p.type === 'ingame'))
 
 // 游戏配置
 const BOARD_SIZE = 8
@@ -811,7 +842,7 @@ function saveHighScore() {
 
 // 返回
 function goBack() {
-  router.push('/')
+  router.push('/game/match3')
 }
 
 // 重新开始

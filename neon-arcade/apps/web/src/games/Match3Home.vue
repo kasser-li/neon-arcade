@@ -1,5 +1,6 @@
 <template>
   <div class="match3-home">
+    <button class="back-btn" @click="goBack">← 返回首页</button>
     <h1 class="game-title">NEON MATCH 3</h1>
     <p class="subtitle">霓虹消消乐</p>
     
@@ -11,14 +12,20 @@
         <button class="play-btn" @click="startEndless">开始游戏</button>
       </div>
       
-      <div class="menu-card disabled">
+      <div class="menu-card" @click="startLevels">
         <div class="icon">📋</div>
         <h2>关卡模式</h2>
-        <p>挑战各种有趣关卡（开发中）</p>
-        <button class="play-btn" disabled>即将开放</button>
+        <p>挑战各种有趣关卡，解锁新关卡</p>
+        <button class="play-btn">开始挑战</button>
       </div>
     </div>
     
+    <div class="action-buttons">
+      <button class="action-btn shop-btn" @click="goToShop">
+        🛒 道具商店
+      </button>
+    </div>
+
     <div class="stats-panel">
       <div class="stat-item">
         <span class="stat-value">{{ highScore }}</span>
@@ -27,6 +34,10 @@
       <div class="stat-item">
         <span class="stat-value">{{ totalGames }}</span>
         <span class="stat-label">游戏次数</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-value">{{ coins }}</span>
+        <span class="stat-label">金币</span>
       </div>
     </div>
     
@@ -45,20 +56,37 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useMatch3ShopStore } from '../stores/match3Shop'
 
 const router = useRouter()
+const shopStore = useMatch3ShopStore()
 
 const highScore = ref(0)
 const totalGames = ref(0)
+const coins = ref(0)
 
 onMounted(() => {
   // 从本地存储读取数据
   highScore.value = parseInt(localStorage.getItem('match3_highscore') || '0')
   totalGames.value = parseInt(localStorage.getItem('match3_games') || '0')
+  shopStore.loadData()
+  coins.value = shopStore.coins
 })
 
 function startEndless() {
   router.push('/game/match3-endless')
+}
+
+function startLevels() {
+  router.push('/game/match3-levels')
+}
+
+function goToShop() {
+  router.push('/game/match3-shop')
+}
+
+function goBack() {
+  router.push('/')
 }
 </script>
 
@@ -70,6 +98,28 @@ function startEndless() {
   display: flex;
   flex-direction: column;
   align-items: center;
+  position: relative;
+}
+
+.back-btn {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  color: #fff;
+  font-size: 1em;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 8px 20px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s;
+  z-index: 10;
+}
+
+.back-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #00f5ff;
+  color: #00f5ff;
 }
 
 .game-title {
@@ -155,10 +205,33 @@ function startEndless() {
   cursor: not-allowed;
 }
 
+.action-buttons {
+  margin-bottom: 20px;
+}
+
+.action-btn {
+  padding: 12px 30px;
+  background: linear-gradient(45deg, #ffd700, #ffed4a);
+  border: none;
+  border-radius: 25px;
+  color: #0a0a0a;
+  font-weight: bold;
+  font-size: 1em;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.action-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+}
+
 .stats-panel {
   display: flex;
-  gap: 30px;
+  gap: 20px;
   margin-bottom: 30px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .stat-item {

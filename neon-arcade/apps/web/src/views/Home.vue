@@ -9,6 +9,11 @@
     <header class="header">
       <h1 class="title">NEON ARCADE</h1>
       <p class="subtitle">霓虹游戏站 · 经典小游戏合集</p>
+      <div class="header-actions">
+        <button class="header-btn" @click="goToNovel">📖 小说</button>
+        <button class="header-btn" @click="goToProfile">👤 个人中心</button>
+        <button class="header-btn" @click="goToLeaderboard">🏆 排行榜</button>
+      </div>
     </header>
 
     <!-- 搜索栏 -->
@@ -91,6 +96,18 @@ function getStarStyle(i: number) {
     top: `${Math.random() * 100}%`,
     animationDelay: `${Math.random() * 2}s`
   }
+}
+
+function goToProfile() {
+  router.push('/profile')
+}
+
+function goToLeaderboard() {
+  router.push('/leaderboard')
+}
+
+function goToNovel() {
+  router.push('/novel')
 }
 </script>
 
@@ -336,6 +353,31 @@ function getStarStyle(i: number) {
   margin-top: 10px;
 }
 
+/* 头部按钮 */
+.header-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.header-btn {
+  padding: 10px 25px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 25px;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-size: 0.95em;
+}
+
+.header-btn:hover {
+  background: rgba(0, 245, 255, 0.1);
+  border-color: #00f5ff;
+  transform: translateY(-2px);
+}
+
 /* 底部 */
 .footer {
   text-align: center;
@@ -353,6 +395,10 @@ function getStarStyle(i: number) {
   
   .games-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .header-actions {
+    flex-wrap: wrap;
   }
 }
 </style>

@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "skills": {
+    "cron-mastery": {
+      "name": "Cron Mastery",
+      "zip_url": "http://lightmake.site/api/v1/download?slug=cron-mastery",
+      "source": "skillhub",
+      "version": "1.0.3"
+    },
+    "tavily-search": {
+      "name": "Tavily Web Search",
+      "zip_url": "http://lightmake.site/api/v1/download?slug=tavily-search",
+      "source": "skillhub",
+      "version": "1.0.0"
+    },
+    "ai-music-generation": {
+      "name": "Ai Music Generation",
+      "zip_url": "http://lightmake.site/api/v1/download?slug=ai-music-generation",
+      "source": "skillhub",
+      "version": "0.1.5"
+    },
+    "music-generation": {
+      "name": "Music Generation",
+      "zip_url": "http://lightmake.site/api/v1/download?slug=music-generation",
+      "source": "skillhub",
+      "version": "1.0.0"
+    },
+    "aiml-music-generator": {
+      "name": "AIML Music Generator",
+      "zip_url": "http://lightmake.site/api/v1/download?slug=aiml-music-generator",
+      "source": "skillhub",
+      "version": "1.0.0"
+    },
+    "xiaohongshu-mcp": {
+      "name": "Xiaohongshu (小红书) Automation",
+      "zip_url": "http://lightmake.site/api/v1/download?slug=xiaohongshu-mcp",
+      "source": "skillhub",
+      "version": "1.0.0"
+    },
+    "rednote": {
+      "name": "小红书 - RedNote",
+      "zip_url": "http://lightmake.site/api/v1/download?slug=rednote",
+      "source": "skillhub",
+      "version": "1.2.4"
+    },
+    "aliyun-image": {
+      "name": "aliyun-image",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=aliyun-image",
+      "source": "skillhub",
+      "version": "1.1.0"
+    },
+    "image-gen-skill": {
+      "name": "Image Gen",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=image-gen-skill",
+      "source": "skillhub",
+      "version": "0.1.0"
+    },
+    "phoenixclaw-image-gen": {
+      "name": "phoenixclaw image gen",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=phoenixclaw-image-gen",
+      "source": "skillhub",
+      "version": "0.2.1"
+    },
+    "baidu-search": {
+      "name": "baidu web search",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=baidu-search",
+      "source": "skillhub",
+      "version": "1.1.0"
+    },
+    "memory-search": {
+      "name": "Memory Search",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=memory-search",
+      "source": "skillhub",
+      "version": "1.0.0"
+    },
+    "skill-vetter-1-0-0": {
+      "name": "Skill Vetter 1.0.0",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=skill-vetter-1-0-0",
+      "source": "skillhub",
+      "version": "1.0.0"
+    },
+    "self-improving": {
+      "name": "Self-Improving + Proactive Agent",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=self-improving",
+      "source": "skillhub",
+      "version": "1.2.16"
+    },
+    "threejs": {
+      "name": "Three.js",
+      "zip_url": "https://lightmake.site/api/v1/download?slug=threejs",
+      "source": "skillhub",
+      "version": "1.0.0"
+    }
+  }
+}

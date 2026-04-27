@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>骑士三视图参考图生成器</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #1a1a2e;
+            color: #fff;
+            font-family: sans-serif;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #ffd700;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .views {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .view-box {
+            background: #0a0a15;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+        .view-box h3 {
+            margin-bottom: 10px;
+            color: #888;
+        }
+        .view-box canvas {
+            border: 1px solid #333;
+            border-radius: 5px;
+            background: #151525;
+        }
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 12px 30px;
+            background: linear-gradient(45deg, #ff0066, #ff00ff);
+            border: none;
+            color: #fff;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            margin: 0 10px;
+        }
+        button:hover {
+            transform: scale(1.05);
+        }
+        .instructions {
+            background: #0a0a15;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        .instructions h3 {
+            color: #ffd700;
+            margin-bottom: 15px;
+        }
+        .instructions ol {
+            margin-left: 20px;
+            line-height: 2;
+            color: #aaa;
+        }
+        .instructions code {
+            background: #1a1a2e;
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: #00ffaa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛡️ 骑士三视图参考图生成器</h1>
+        
+        <div class="controls">
+            <button onclick="drawViews()">🔄 重新生成</button>
+            <button onclick="downloadImage()">💾 下载参考图</button>
+        </div>
+        
+        <div class="views">
+            <div class="view-box">
+                <h3>正视图 (Front View)</h3>
+                <canvas id="frontView" width="400" height="600"></canvas>
+            </div>
+            <div class="view-box">
+                <h3>侧视图 (Side View)</h3>
+                <canvas id="sideView" width="400" height="600"></canvas>
+            </div>
+            <div class="view-box">
+                <h3>背视图 (Back View)</h3>
+                <canvas id="backView" width="400" height="600"></canvas>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h3>📖 如何在 Blender 中使用</h3>
+            <ol>
+                <li>点击"下载参考图"保存为 PNG</li>
+                <li>打开 Blender，按 <code>Shift + A</code> → Image → Reference</li>
+                <li>选择下载的 PNG 文件</li>
+                <li>按 <code>N</code> 打开侧边栏，调整参考图位置</li>
+                <li>在正交视图 (按 1/3/7) 中照着描图建模</li>
+                <li>导出时删除参考图</li>
+            </ol>
+            
+            <h3 style="margin-top: 20px;">📐 比例说明</h3>
+            <ol>
+                <li>头身比：约 1:7.5（写实风格）</li>
+                <li>肩宽：约 2.5 个头宽</li>
+                <li>腿长：约占身高 1/2</li>
+                <li>网格单位：1 Blender 单位 = 1 米</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        const colors = {
+            silver: '#e8e8e8',
+            gold: '#ffd700',
+            black: '#1a1a1a',
+            blue: '#1e4a9e',
+            red: '#8b1e1e',
+            chainmail: '#666666',
+            leather: '#4a3728',
+            glow: '#00aaff',
+            gem: '#1e40af'
+        };
+
+        function drawKnight(ctx, view) {
+            const w = ctx.canvas.width;
+            const h = ctx.canvas.height;
+            const cx = w / 2;
+            
+            // 清空
+            ctx.fillStyle = '#151525';
+            ctx.fillRect(0, 0, w, h);
+            
+            // 画网格
+            ctx.strokeStyle = '#222233';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < w; i += 50) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, h);
+                ctx.stroke();
+            }
+            for (let i = 0; i < h; i += 50) {
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(w, i);
+                ctx.stroke();
+            }
+            
+            // 中心线
+            ctx.strokeStyle = '#333355';
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(cx, 0);
+            ctx.lineTo(cx, h);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            const baseY = 100;
+            const scale = 0.8;
+            
+            // ========== 身体 ==========
+            if (view === 'front' || view === 'back') {
+                // 腿部（黑）
+                ctx.fillStyle = colors.black;
+                ctx.fillRect(cx - 70 * scale, baseY + 400 * scale, 50 * scale, 200 * scale);
+                ctx.fillRect(cx + 20 * scale, baseY + 400 * scale, 50 * scale, 200 * scale);
+                
+                // 膝盖（银）
+                ctx.fillStyle = colors.silver;
+                ctx.beginPath();
+                ctx.arc(cx - 45 * scale, baseY + 400 * scale, 25 * scale, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(cx + 45 * scale, baseY + 400 * scale, 25 * scale, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 战裙（蓝）
+                ctx.fillStyle = colors.blue;
+                ctx.fillRect(cx - 100 * scale, baseY + 320 * scale, 200 * scale, 100 * scale);
+                
+                // 金色裙边
+                ctx.fillStyle = colors.gold;
+                ctx.fillRect(cx - 102 * scale, baseY + 415 * scale, 204 * scale, 10 * scale);
+                
+                // 躯干（银）
+                ctx.fillStyle = colors.silver;
+                ctx.fillRect(cx - 90 * scale, baseY + 150 * scale, 180 * scale, 180 * scale);
+                
+                // 胸甲金条
+                ctx.fillStyle = colors.gold;
+                ctx.fillRect(cx - 20 * scale, baseY + 150 * scale, 40 * scale, 180 * scale);
+                ctx.fillRect(cx - 90 * scale, baseY + 155 * scale, 180 * scale, 10 * scale);
+                ctx.fillRect(cx - 90 * scale, baseY + 320 * scale, 180 * scale, 10 * scale);
+                
+                // 肩甲（多层）
+                for (let i = 0; i < 4; i++) {
+                    ctx.fillStyle = i === 0 ? colors.gold : colors.silver;
+                    const layerW = (100 - i * 15) * scale;
+                    const layerH = 20 * scale;
+                    const layerX = cx - 100 * scale - i * 10 * scale;
+                    ctx.fillRect(layerX, baseY + 150 * scale - i * 25 * scale, layerW, layerH);
+                    ctx.fillRect(cx + 10 * scale + i * 10 * scale, baseY + 150 * scale - i * 25 * scale, layerW, layerH);
+                }
+                
+                // 手臂
+                ctx.fillStyle = colors.chainmail;
+                ctx.fillRect(cx - 140 * scale, baseY + 150 * scale, 40 * scale, 120 * scale);
+                ctx.fillRect(cx + 100 * scale, baseY + 150 * scale, 40 * scale, 120 * scale);
+                
+                ctx.fillStyle = colors.silver;
+                ctx.fillRect(cx - 145 * scale, baseY + 270 * scale, 50 * scale, 120 * scale);
+                ctx.fillRect(cx + 95 * scale, baseY + 270 * scale, 50 * scale, 120 * scale);
+                
+                ctx.fillStyle = colors.gold;
+                ctx.fillRect(cx - 150 * scale, baseY + 390 * scale, 60 * scale, 50 * scale);
+                ctx.fillRect(cx + 90 * scale, baseY + 390 * scale, 60 * scale, 50 * scale);
+                
+                // 头部
+                ctx.fillStyle = colors.silver;
+                ctx.beginPath();
+                ctx.arc(cx, baseY + 80 * scale, 60 * scale, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 面罩（黑）
+                ctx.fillStyle = colors.black;
+                ctx.fillRect(cx - 50 * scale, baseY + 60 * scale, 100 * scale, 50 * scale);
+                
+                // 发光眼缝
+                ctx.fillStyle = colors.glow;
+                ctx.fillRect(cx - 35 * scale, baseY + 75 * scale, 70 * scale, 12 * scale);
+                
+                // 头盔尖顶
+                ctx.fillStyle = colors.gold;
+                ctx.beginPath();
+                ctx.moveTo(cx - 25 * scale, baseY + 30 * scale);
+                ctx.lineTo(cx + 25 * scale, baseY + 30 * scale);
+                ctx.lineTo(cx, baseY - 30 * scale);
+                ctx.fill();
+                
+                // 蓝色羽毛
+                ctx.fillStyle = colors.blue;
+                ctx.beginPath();
+                ctx.ellipse(cx, baseY - 50 * scale, 25 * scale, 80 * scale, 0, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 披风（蓝外红内）
+                ctx.fillStyle = colors.blue;
+                ctx.beginPath();
+                ctx.moveTo(cx - 120 * scale, baseY + 150 * scale);
+                ctx.lineTo(cx - 140 * scale, baseY + 550 * scale);
+                ctx.lineTo(cx + 140 * scale, baseY + 550 * scale);
+                ctx.lineTo(cx + 120 * scale, baseY + 150 * scale);
+                ctx.fill();
+                
+                ctx.fillStyle = colors.red;
+                ctx.beginPath();
+                ctx.moveTo(cx - 100 * scale, baseY + 150 * scale);
+                ctx.lineTo(cx - 120 * scale, baseY + 530 * scale);
+                ctx.lineTo(cx + 120 * scale, baseY + 530 * scale);
+                ctx.lineTo(cx + 100 * scale, baseY + 150 * scale);
+                ctx.fill();
+                
+                // 剑（右手）
+                ctx.fillStyle = colors.leather;
+                ctx.fillRect(cx + 110 * scale, baseY + 350 * scale, 20 * scale, 80 * scale);
+                ctx.fillStyle = colors.gold;
+                ctx.fillRect(cx + 100 * scale, baseY + 330 * scale, 40 * scale, 25 * scale);
+                ctx.fillStyle = colors.silver;
+                ctx.fillRect(cx + 115 * scale, baseY + 180 * scale, 10 * scale, 150 * scale);
+                
+                // 盾牌（左手）
+                ctx.fillStyle = colors.silver;
+                ctx.beginPath();
+                const shieldCX = cx - 180 * scale;
+                const shieldCY = baseY + 350 * scale;
+                for (let i = 0; i < 6; i++) {
+                    const angle = (i / 6) * Math.PI * 2;
+                    const x = shieldCX + Math.cos(angle) * 100 * scale;
+                    const y = shieldCY + Math.sin(angle) * 100 * scale;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.fill();
+                
+                // 盾金边
+                ctx.strokeStyle = colors.gold;
+                ctx.lineWidth = 8 * scale;
+                ctx.stroke();
+                
+                // 盾徽章
+                ctx.fillStyle = colors.blue;
+                ctx.beginPath();
+                ctx.arc(shieldCX, shieldCY, 50 * scale, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 盾中央宝石
+                ctx.fillStyle = colors.gem;
+                ctx.beginPath();
+                ctx.moveTo(shieldCX, shieldCY - 30 * scale);
+                ctx.lineTo(shieldCX + 25 * scale, shieldCY);
+                ctx.lineTo(shieldCX, shieldCY + 30 * scale);
+                ctx.lineTo(shieldCX - 25 * scale, shieldCY);
+                ctx.closePath();
+                ctx.fill();
+                
+            } else if (view === 'side') {
+                // 侧视图
+                const sideX = cx - 100 * scale;
+                
+                // 腿部（黑）
+                ctx.fillStyle = colors.black;
+                ctx.fillRect(sideX + 20 * scale, baseY + 400 * scale, 40 * scale, 200 * scale);
+                
+                // 膝盖（银）
+                ctx.fillStyle = colors.silver;
+                ctx.beginPath();
+                ctx.arc(sideX + 40 * scale, baseY + 400 * scale, 25 * scale, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 战裙（蓝）
+                ctx.fillStyle = colors.blue;
+                ctx.fillRect(sideX, baseY + 320 * scale, 80 * scale, 100 * scale);
+                
+                // 躯干（银）
+                ctx.fillStyle = colors.silver;
+                ctx.fillRect(sideX, baseY + 150 * scale, 100 * scale, 180 * scale);
+                
+                // 肩甲
+                for (let i = 0; i < 4; i++) {
+                    ctx.fillStyle = i === 0 ? colors.gold : colors.silver;
+                    const layerW = (80 - i * 12) * scale;
+                    ctx.fillRect(sideX - 10 * scale, baseY + 150 * scale - i * 25 * scale, layerW, 20 * scale);
+                }
+                
+                // 手臂
+                ctx.fillStyle = colors.chainmail;
+                ctx.fillRect(sideX - 30 * scale, baseY + 150 * scale, 35 * scale, 120 * scale);
+                ctx.fillStyle = colors.silver;
+                ctx.fillRect(sideX - 35 * scale, baseY + 270 * scale, 45 * scale, 120 * scale);
+                ctx.fillStyle = colors.gold;
+                ctx.fillRect(sideX - 40 * scale, baseY + 390 * scale, 55 * scale, 50 * scale);
+                
+                // 头部
+                ctx.fillStyle = colors.silver;
+                ctx.beginPath();
+                ctx.arc(sideX + 50 * scale, baseY + 80 * scale, 60 * scale, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 面罩
+                ctx.fillStyle = colors.black;
+                ctx.fillRect(sideX + 20 * scale, baseY + 60 * scale, 60 * scale, 50 * scale);
+                
+                // 发光眼缝
+                ctx.fillStyle = colors.glow;
+                ctx.fillRect(sideX + 30 * scale, baseY + 75 * scale, 40 * scale, 12 * scale);
+                
+                // 头盔尖顶
+                ctx.fillStyle = colors.gold;
+                ctx.beginPath();
+                ctx.moveTo(sideX + 25 * scale, baseY + 30 * scale);
+                ctx.lineTo(sideX + 75 * scale, baseY + 30 * scale);
+                ctx.lineTo(sideX + 50 * scale, baseY - 30 * scale);
+                ctx.fill();
+                
+                // 羽毛
+                ctx.fillStyle = colors.blue;
+                ctx.beginPath();
+                ctx.ellipse(sideX + 50 * scale, baseY - 50 * scale, 20 * scale, 80 * scale, -0.3, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 披风
+                ctx.fillStyle = colors.blue;
+                ctx.beginPath();
+                ctx.moveTo(sideX + 80 * scale, baseY + 150 * scale);
+                ctx.lineTo(sideX + 60 * scale, baseY + 550 * scale);
+                ctx.lineTo(sideX + 140 * scale, baseY + 550 * scale);
+                ctx.lineTo(sideX + 120 * scale, baseY + 150 * scale);
+                ctx.fill();
+                
+                ctx.fillStyle = colors.red;
+                ctx.beginPath();
+                ctx.moveTo(sideX + 85 * scale, baseY + 150 * scale);
+                ctx.lineTo(sideX + 70 * scale, baseY + 530 * scale);
+                ctx.lineTo(sideX + 130 * scale, baseY + 530 * scale);
+                ctx.lineTo(sideX + 115 * scale, baseY + 150 * scale);
+                ctx.fill();
+                
+                // 剑（侧面）
+                ctx.fillStyle = colors.silver;
+                ctx.fillRect(sideX + 120 * scale, baseY + 200 * scale, 8 * scale, 140 * scale);
+                
+                // 盾牌（侧面）
+                ctx.fillStyle = colors.silver;
+                ctx.beginPath();
+                ctx.ellipse(sideX - 80 * scale, baseY + 350 * scale, 15 * scale, 100 * scale, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            
+            // 标注
+            ctx.fillStyle = '#666';
+            ctx.font = '14px sans-serif';
+            ctx.fillText('单位：Blender Units', 10, h - 10);
+            ctx.fillText('比例：1:1', w - 80, h - 10);
+        }
+
+        function drawViews() {
+            const frontCtx = document.getElementById('frontView').getContext('2d');
+            const sideCtx = document.getElementById('sideView').getContext('2d');
+            const backCtx = document.getElementById('backView').getContext('2d');
+            
+            drawKnight(frontCtx, 'front');
+            drawKnight(sideCtx, 'side');
+            drawKnight(backCtx, 'back');
+        }
+
+        function downloadImage() {
+            // 创建合并画布
+            const canvas = document.createElement('canvas');
+            canvas.width = 1200;
+            canvas.height = 600;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = '#151525';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const frontImg = document.getElementById('frontView');
+            const sideImg = document.getElementById('sideView');
+            const backImg = document.getElementById('backView');
+            
+            ctx.drawImage(frontImg, 0, 0);
+            ctx.drawImage(sideImg, 400, 0);
+            ctx.drawImage(backImg, 800, 0);
+            
+            // 添加标题
+            ctx.fillStyle = '#ffd700';
+            ctx.font = 'bold 24px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Knight Character Reference Sheet', 200, 30);
+            ctx.fillText('Front View', 600, 30);
+            ctx.fillText('Side View', 1000, 30);
+            ctx.fillText('Back View', 200, 590);
+            ctx.fillText('600', 600, 590);
+            ctx.fillText('1000', 1000, 590);
+            
+            // 下载
+            const link = document.createElement('a');
+            link.download = 'knight_reference_sheet.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        // 初始化
+        drawViews();
+    </script>
+</body>
+</html>

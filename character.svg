@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <!-- 背景 -->
+  <rect width="400" height="400" fill="#000000"/>
+  
+  <!-- 耳机头带 -->
+  <path d="M 120 80 Q 200 40 280 80" 
+        stroke="#ffffff" stroke-width="8" fill="none" stroke-linecap="round"/>
+  
+  <!-- 脸部轮廓 - 豆子形状 -->
+  <ellipse cx="200" cy="180" rx="90" ry="65" fill="#ffffff"/>
+  
+  <!-- 左眼 -->
+  <ellipse cx="165" cy="175" rx="12" ry="18" fill="#000000"/>
+  <circle cx="168" cy="170" r="4" fill="#ffffff"/>
+  
+  <!-- 右眼 -->
+  <ellipse cx="235" cy="175" rx="12" ry="18" fill="#000000"/>
+  <circle cx="238" cy="170" r="4" fill="#ffffff"/>
+  
+  <!-- 右手/爪子 - 线条风格 -->
+  <g stroke="#ffffff" stroke-width="3" fill="none" stroke-linecap="round">
+    <!-- 手掌 -->
+    <ellipse cx="320" cy="280" rx="35" ry="30" fill="#000000" stroke="#ffffff" stroke-width="3"/>
+    <!-- 手指1 -->
+    <path d="M 295 265 Q 285 250 290 235"/>
+    <!-- 手指2 -->
+    <path d="M 310 260 Q 305 240 315 225"/>
+    <!-- 手指3 -->
+    <path d="M 330 265 Q 335 245 345 230"/>
+    <!-- 手指4 -->
+    <path d="M 345 275 Q 355 260 360 245"/>
+    <!-- 手腕线条 -->
+    <path d="M 290 300 Q 270 320 250 340"/>
+    <path d="M 300 305 Q 285 325 270 345"/>
+  </g>
+  
+  <!-- 手臂/身体轮廓 - 线条风格 -->
+  <path d="M 250 220 Q 280 250 300 280" 
+        stroke="#ffffff" stroke-width="3" fill="none" stroke-linecap="round"/>
+</svg>

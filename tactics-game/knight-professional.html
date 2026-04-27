@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D 骑士 - 专业版</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #0a0a15 0%, #1a1a2e 100%);
+            overflow: hidden;
+            font-family: sans-serif;
+        }
+        #container { width: 100vw; height: 100vh; }
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #fff;
+            background: rgba(0,0,0,0.7);
+            padding: 20px 25px;
+            border-radius: 12px;
+            border: 1px solid #444;
+            backdrop-filter: blur(10px);
+            z-index: 100;
+        }
+        #ui h1 { 
+            font-size: 1.4em; 
+            margin-bottom: 12px;
+            background: linear-gradient(45deg, #ffd700, #ffaa00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        #ui p { color: #888; font-size: 0.85em; margin: 6px 0; }
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 200;
+            background: rgba(0,0,0,0.9);
+            padding: 40px 60px;
+            border-radius: 15px;
+            text-align: center;
+            display: none;
+        }
+        #loading.show { display: block; }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #333;
+            border-top-color: #ffd700;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <div id="ui">
+        <h1>🛡️ 圣殿骑士</h1>
+        <p>🖱️ 左键 - 旋转视角</p>
+        <p>🖱️ 右键 - 平移</p>
+        <p>🖱️ 滚轮 - 缩放</p>
+        <p>🎬 按空格键播放/暂停动画</p>
+    </div>
+    <div id="loading">
+        <div class="spinner"></div>
+        <p>正在生成骑士模型...</p>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'https://esm.sh/three@0.160.0';
+        import { OrbitControls } from 'https://esm.sh/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+        import { GLTFExporter } from 'https://esm.sh/three@0.160.0/examples/jsm/exporters/GLTFExporter.js';
+
+        // 显示加载
+        document.getElementById('loading').classList.add('show');
+
+        // ========== 场景 ==========
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0a15);
+        scene.fog = new THREE.FogExp2(0x0a0a15, 0.015);
+
+        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.set(5, 3.5, 5);
+        
+        const renderer = new THREE.WebGLRenderer({ 
+            antialias: true,
+            powerPreference: 'high-performance'
+        });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1.2;
+        document.getElementById('container').appendChild(renderer.domElement);
+
+        // 控制器
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.target.set(0, 1.4, 0);
+        controls.minDistance = 3;
+        controls.maxDistance = 12;
+        controls.maxPolarAngle = Math.PI / 2 + 0.3;
+
+        // ========== 灯光 ==========
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const mainLight = new THREE.DirectionalLight(0xffffff, 1.5);
+        mainLight.position.set(5, 8, 5);
+        mainLight.castShadow = true;
+        mainLight.shadow.mapSize.width = 2048;
+        mainLight.shadow.mapSize.height = 2048;
+        scene.add(mainLight);
+
+        const rimLight = new THREE.DirectionalLight(0x4488ff, 0.8);
+        rimLight.position.set(-5, 3, -5);
+        scene.add(rimLight);
+
+        const fillLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        fillLight.position.set(0, -2, 3);
+        scene.add(fillLight);
+
+        // 地面
+        const ground = new THREE.Mesh(
+            new THREE.CircleGeometry(6, 64),
+            new THREE.MeshStandardMaterial({ color: 0x151525, roughness: 0.8, metalness: 0.2 })
+        );
+        ground.rotation.x = -Math.PI / 2;
+        ground.position.y = -0.01;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        // 网格辅助
+        const grid = new THREE.GridHelper(12, 24, 0x333344, 0x222233);
+        grid.position.y = 0.01;
+        scene.add(grid);
+
+        // ========== 材质库 ==========
+        const Materials = {
+            silver: new THREE.MeshStandardMaterial({
+                color: 0xffffff,
+                metalness: 0.7,
+                roughness: 0.3
+            }),
+            gold: new THREE.MeshStandardMaterial({
+                color: 0xffcc00,
+                metalness: 0.8,
+                roughness: 0.2,
+                emissive: 0xaa6600,
+                emissiveIntensity: 0.4
+            }),
+            black: new THREE.MeshStandardMaterial({
+                color: 0x333333,
+                metalness: 0.5,
+                roughness: 0.5
+            }),
+            blueCape: new THREE.MeshStandardMaterial({
+                color: 0x3366ff,
+                roughness: 0.8,
+                side: THREE.DoubleSide
+            }),
+            redCape: new THREE.MeshStandardMaterial({
+                color: 0xcc3333,
+                roughness: 0.8,
+                side: THREE.DoubleSide
+            }),
+            blueSkirt: new THREE.MeshStandardMaterial({
+                color: 0x3366ff,
+                roughness: 0.7,
+                side: THREE.DoubleSide
+            }),
+            chainmail: new THREE.MeshStandardMaterial({
+                color: 0x888888,
+                metalness: 0.7,
+                roughness: 0.4
+            }),
+            leather: new THREE.MeshStandardMaterial({
+                color: 0x664433,
+                roughness: 0.8
+            }),
+            visor: new THREE.MeshStandardMaterial({
+                color: 0x222222,
+                metalness: 0.5,
+                roughness: 0.4
+            }),
+            glowBlue: new THREE.MeshBasicMaterial({
+                color: 0x00ffff,
+                transparent: true,
+                opacity: 1.0
+            }),
+            gem: new THREE.MeshPhysicalMaterial({
+                color: 0x3366ff,
+                metalness: 0.8,
+                roughness: 0.2,
+                transmission: 0.6,
+                thickness: 1.5,
+                clearcoat: 1.0
+            })
+        };
+
+        // ========== 骑士模型 ==========
+        const knight = new THREE.Group();
+        scene.add(knight);
+
+        // 辅助函数：创建带材质的网格
+        function createMesh(geometry, material, name, parent, position, rotation, scale) {
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.name = name;
+            mesh.castShadow = true;
+            mesh.receiveShadow = true;
+            if (parent) parent.add(mesh);
+            if (position) mesh.position.copy(position);
+            if (rotation) mesh.rotation.set(rotation[0], rotation[1], rotation[2]);
+            if (scale) mesh.scale.set(scale[0], scale[1], scale[2]);
+            return mesh;
+        }
+
+        // --- 腿部 ---
+        function createLeg(x, side) {
+            const leg = new THREE.Group();
+            leg.name = `${side}Leg`;
+            
+            // 大腿
+            const thigh = createMesh(
+                new THREE.CylinderGeometry(0.14, 0.12, 0.5, 12),
+                Materials.black,
+                `${side}Thigh`,
+                leg,
+                new THREE.Vector3(x, 0.5, 0),
+                [0, 0, 0],
+                [1, 1, 1]
+            );
+            
+            // 膝盖
+            const knee = createMesh(
+                new THREE.SphereGeometry(0.13, 16, 16),
+                Materials.silver,
+                `${side}Knee`,
+                leg,
+                new THREE.Vector3(x, 0.22, 0),
+                [0, 0, 0],
+                [1, 1, 1]
+            );
+            
+            // 小腿
+            const shin = createMesh(
+                new THREE.CylinderGeometry(0.11, 0.1, 0.45, 12),
+                Materials.black,
+                `${side}Shin`,
+                leg,
+                new THREE.Vector3(x, -0.05, 0),
+                [0, 0, 0],
+                [1, 1, 1]
+            );
+            
+            // 脚
+            const foot = createMesh(
+                new THREE.BoxGeometry(0.16, 0.1, 0.25),
+                Materials.black,
+                `${side}Foot`,
+                leg,
+                new THREE.Vector3(x, -0.32, 0.03),
+                [0, 0, 0],
+                [1, 1, 1]
+            );
+            
+            knight.add(leg);
+            return leg;
+        }
+        
+        const leftLeg = createLeg(-0.2, 'Left');
+        const rightLeg = createLeg(0.2, 'Right');
+
+        // --- 战裙 ---
+        const skirtGroup = new THREE.Group();
+        skirtGroup.name = 'Skirt';
+        
+        createMesh(
+            new THREE.BoxGeometry(0.5, 0.55, 0.08),
+            Materials.blueSkirt,
+            'SkirtFront',
+            skirtGroup,
+            new THREE.Vector3(0, 0.85, 0.15),
+            [0, 0, 0],
+            [1, 1, 1]
+        );
+        
+        createMesh(
+            new THREE.BoxGeometry(0.52, 0.04, 0.09),
+            Materials.gold,
+            'SkirtTrim',
+            skirtGroup,
+            new THREE.Vector3(0, 0.58, 0.15),
+            [0, 0, 0],
+            [1, 1, 1]
+        );
+        
+        knight.add(skirtGroup);
+
+        // --- 躯干 ---
+        const torsoGroup = new THREE.Group();
+        torsoGroup.name = 'Torso';
+        
+        createMesh(
+            new THREE.CylinderGeometry(0.28, 0.32, 0.35, 12),
+            Materials.silver,
+            'Abdomen',
+            torsoGroup,
+            new THREE.Vector3(0, 1.05, 0),
+            [0, 0, 0],
+            [1, 1, 1]
+        );
+        
+        createMesh(
+            new THREE.CylinderGeometry(0.32, 0.28, 0.7, 12),
+            Materials.silver,
+            'Chest',
+            torsoGroup,
+            new THREE.Vector3(0, 1.5, 0),
+            [0, 0, 0],
+            [1, 1, 1]
+        );
+        
+        createMesh(
+            new THREE.BoxGeometry(0.08, 0.65, 0.05),
+            Materials.gold,
+            'ChestStripe',
+            torsoGroup,
+            new THREE.Vector3(0, 1.5, 0.3),
+            [0, 0, 0],
+            [1, 1, 1]
+        );
+        
+        createMesh(
+            new THREE.BoxGeometry(0.5, 0.04, 0.05),
+            Materials.gold,
+            'ChestTopTrim',
+            torsoGroup,
+            new THREE.Vector3(0, 1.82, 0.3),
+            [0, 0, 0],
+            [1, 1, 1]
+        );
+        
+        createMesh(
+            new THREE.BoxGeometry(0.52, 0.04, 0.05),
+            Materials.gold,
+            'ChestBottomTrim',
+            torsoGroup,
+            new THREE.Vector3(0, 1.18, 0.3),
+            [0, 0, 0],
+            [1, 1, 1]
+        );
+        
+        // 腰部金扣
+        [-0.18, 0.18].forEach((x, i) => {
+            createMesh(
+                new THREE.CylinderGeometry(0.06, 0.06, 0.04, 12),
+                Materials.gold,
+                `Buckle${i}`,
+                torsoGroup,
+                new THREE.Vector3(x, 0.88, 0.28),
+                [Math.PI / 2, 0, 0],
+                [1, 1, 1]
+            );
+        });
+        
+        knight.add(torsoGroup);
+
+        // --- 肩甲 ---
+        function createShoulder(x, side) {
+            const shoulder = new THREE.Group();
+            shoulder.name = `${side}Shoulder`;
+            
+            for (let i = 0; i < 4; i++) {
+                const mat = i === 0 ? Materials.gold : Materials.silver;
+                const layer = createMesh(
+                    new THREE.BoxGeometry(0.25 - i * 0.04, 0.06, 0.15),
+                    mat,
+                    `${side}ShoulderLayer${i}`,
+                    shoulder,
+                    new THREE.Vector3(x - i * 0.02 * Math.sign(x), 1.75 - i * 0.07, 0.05),
+                    [0, Math.sign(x) * 0.2, -Math.sign(x) * 0.15],
+                    [1, 1, 1]
+                );
+            }
+            
+            createMesh(
+                new THREE.CylinderGeometry(0.08, 0.08, 0.05, 16),
+                Materials.gold,
+                `${side}ShoulderClasp`,
+                shoulder,
+                new THREE.Vector3(x * 0.8, 1.82, 0),
+                [Math.PI / 2, 0, 0],
+                [1, 1, 1]
+            );
+            
+            knight.add(shoulder);
+            return shoulder;
+        }
+        
+        const leftShoulder = createShoulder(-0.35, 'Left');
+        const rightShoulder = createShoulder(0.35, 'Right');
+
+        // --- 手臂 ---
+        function createArm(x, isShield, side) {
+            const arm = new THREE.Group();
+            arm.name = `${side}Arm`;
+            
+            const upper = createMesh(
+                new THREE.CylinderGeometry(0.1, 0.09, 0.35, 12),
+                Materials.chainmail,
+                `${side}UpperArm`,
+                arm,
+                new THREE.Vector3(x, 1.6, 0),
+                [0, 0, -Math.sign(x) * 0.15],
+                [1, 1, 1]
+            );
+            
+            const forearm = createMesh(
+                new THREE.CylinderGeometry(0.09, 0.08, 0.4, 12),
+                Materials.silver,
+                `${side}Forearm`,
+                arm,
+                new THREE.Vector3(x * 1.1, 1.3, isShield ? 0.08 : 0.05),
+                [0, 0, Math.sign(x) * 0.2],
+                [1, 1, 1]
+            );
+            
+            const gauntlet = createMesh(
+                new THREE.BoxGeometry(0.13, 0.14, 0.13),
+                Materials.gold,
+                `${side}Gauntlet`,
+                arm,
+                new THREE.Vector3(x * 1.15, 1.05, isShield ? 0.15 : 0.1),
+                [0, 0, 0],
+                [1, 1, 1]
+            );
+            
+            knight.add(arm);
+            return arm;
+        }
+        
+        const leftArm = createArm(-0.52, true, 'Left');
+        const rightArm = createArm(0.52, false, 'Right');
+
+        // --- 头部 ---
+        const headGroup = new THREE.Group();
+        headGroup.name = 'Head';
+        
+        const neck = createMesh(
+            new THREE.CylinderGeometry(0.13, 0.15, 0.25, 12),
+            Materials.chainmail,
+            'Neck',
+            headGroup,
+            new THREE.Vector3(0, 2.0, 0),
+            [0, 0, 0],
+            [1, 1, 1]
+        );
+        
+        const helmet = createMesh(
+            new THREE.SphereGeometry(0.27, 24, 24),
+            Materials.silver,
+            'Helmet',
+            headGroup,
+            new THREE.Vector3(0, 2.32, 0),
+            [0, 0, 0],
+            [1, 0.8, 1]
+        );
+        
+        const visor = createMesh(
+            new THREE.BoxGeometry(0.32, 0.22, 0.18),
+            Materials.visor,
+            'Visor',
+            headGroup,
+            new THREE.Vector3(0, 2.28, 0.23),
+            [0, 0, 0],
+            [1, 1, 1]
+        );
+        
+        const eyeGlow = createMesh(
+            new THREE.BoxGeometry(0.2, 0.05, 0.03),
+            Materials.glowBlue,
+            'EyeGlow',
+            headGroup,
+            new THREE.Vector3(0, 2.32, 0.32),
+            [0, 0, 0],
+            [1, 1, 1]
+        );
+        
+        const spike = createMesh(
+            new THREE.ConeGeometry(0.08, 0.35, 4),
+            Materials.gold,
+            'HelmetSpike',
+            headGroup,
+            new THREE.Vector3(0, 2.65, -0.05),
+            [0, Math.PI / 4, 0],
+            [1, 1, 1]
+        );
+        
+        const plume = createMesh(
+            new THREE.ConeGeometry(0.1, 0.5, 8),
+            Materials.blueSkirt,
+            'Plume',
+            headGroup,
+            new THREE.Vector3(0, 2.95, -0.15),
+            [0.35, 0, 0],
+            [1, 1, 1]
+        );
+        
+        knight.add(headGroup);
+
+        // --- 剑 ---
+        const swordGroup = new THREE.Group();
+        swordGroup.name = 'Sword';
+        
+        createMesh(
+            new THREE.CylinderGeometry(0.04, 0.04, 0.28, 12),
+            Materials.leather,
+            'SwordHilt',
+            swordGroup,
+            new THREE.Vector3(0, 0, 0),
+            [0, 0, 0],
+            [1, 1, 1]
+        );
+        
+        createMesh(
+            new THREE.BoxGeometry(0.2, 0.07, 0.07),
+            Materials.gold,
+            'SwordGuard',
+            swordGroup,
+            new THREE.Vector3(0, 0.17, 0),
+            [0, 0, 0],
+            [1, 1, 1]
+        );
+        
+        createMesh(
+            new THREE.BoxGeometry(0.05, 1.3, 0.012),
+            Materials.silver,
+            'SwordBlade',
+            swordGroup,
+            new THREE.Vector3(0, 0.8, 0),
+            [0, 0, 0],
+            [1, 1, 1]
+        );
+        
+        swordGroup.position.set(0.75, 1.1, 0.35);
+        swordGroup.rotation.set(0.1, 0, -0.15);
+        knight.add(swordGroup);
+
+        // --- 盾牌 ---
+        const shieldGroup = new THREE.Group();
+        shieldGroup.name = 'Shield';
+        
+        const shieldBody = createMesh(
+            new THREE.CylinderGeometry(0.5, 0.45, 0.06, 6),
+            Materials.silver,
+            'ShieldBody',
+            shieldGroup,
+            new THREE.Vector3(0, 0, 0),
+            [Math.PI / 2, 0, Math.PI / 2],
+            [1, 1, 1]
+        );
+        
+        const shieldRim = createMesh(
+            new THREE.TorusGeometry(0.47, 0.04, 8, 6),
+            Materials.gold,
+            'ShieldRim',
+            shieldGroup,
+            new THREE.Vector3(0, 0, 0.03),
+            [Math.PI / 2, 0, Math.PI / 2],
+            [1, 1, 1]
+        );
+        
+        const emblem = createMesh(
+            new THREE.CylinderGeometry(0.2, 0.02, 0.02, 8),
+            Materials.blueSkirt,
+            'ShieldEmblem',
+            shieldGroup,
+            new THREE.Vector3(0, 0, 0.04),
+            [Math.PI / 2, 0, Math.PI / 2],
+            [1, 1, 1]
+        );
+        
+        const centerGem = createMesh(
+            new THREE.OctahedronGeometry(0.1),
+            Materials.gem,
+            'ShieldGem',
+            shieldGroup,
+            new THREE.Vector3(0, 0, 0.15),
+            [0, 0, 0],
+            [1, 1, 1]
+        );
+        
+        const emblemRing = createMesh(
+            new THREE.TorusGeometry(0.15, 0.02, 8, 16),
+            Materials.gold,
+            'ShieldRing',
+            shieldGroup,
+            new THREE.Vector3(0, 0, 0.05),
+            [Math.PI / 2, 0, Math.PI / 2],
+            [1, 1, 1]
+        );
+        
+        shieldGroup.position.set(-0.75, 1.1, 0.4);
+        shieldGroup.rotation.set(0, 0.35, 0);
+        knight.add(shieldGroup);
+
+        // --- 披风 ---
+        const capeGroup = new THREE.Group();
+        capeGroup.name = 'Cape';
+        
+        const capeOuter = createMesh(
+            new THREE.BoxGeometry(0.9, 1.8, 0.03),
+            Materials.blueCape,
+            'CapeOuter',
+            capeGroup,
+            new THREE.Vector3(0, 1.3, -0.42),
+            [0.2, 0, 0],
+            [1, 1, 1]
+        );
+        
+        const capeInner = createMesh(
+            new THREE.BoxGeometry(0.85, 1.75, 0.025),
+            Materials.redCape,
+            'CapeInner',
+            capeGroup,
+            new THREE.Vector3(0, 1.3, -0.4),
+            [0.2, 0, 0],
+            [1, 1, 1]
+        );
+        
+        const claspL = createMesh(
+            new THREE.SphereGeometry(0.09, 16, 16),
+            Materials.gold,
+            'CapeClaspL',
+            capeGroup,
+            new THREE.Vector3(-0.38, 1.85, -0.25),
+            [0, 0, 0],
+            [1, 1, 1]
+        );
+        
+        const claspR = createMesh(
+            new THREE.SphereGeometry(0.09, 16, 16),
+            Materials.gold,
+            'CapeClaspR',
+            capeGroup,
+            new THREE.Vector3(0.38, 1.85, -0.25),
+            [0, 0, 0],
+            [1, 1, 1]
+        );
+        
+        knight.add(capeGroup);
+
+        // 隐藏加载提示
+        setTimeout(() => {
+            document.getElementById('loading').classList.remove('show');
+        }, 1000);
+
+        // ========== 动画系统 ==========
+        let isAnimating = false;
+        const clock = new THREE.Clock();
+
+        // 动画部件
+        const animatedParts = [
+            { mesh: capeOuter, axis: 'z', speed: 1.2, amplitude: 0.015 },
+            { mesh: capeInner, axis: 'z', speed: 1.2, amplitude: 0.015 },
+            { mesh: plume, axis: 'z', speed: 1.8, amplitude: 0.025 },
+            { mesh: knight, axis: 'y', speed: 0, amplitude: 0.012, type: 'position' },
+            { mesh: knight, axis: 'y', speed: 0.4, amplitude: 0.02, type: 'rotation' }
+        ];
+
+        // 切换动画
+        window.toggleAnimation = () => {
+            isAnimating = !isAnimating;
+            console.log(isAnimating ? '▶ 动画播放' : '⏸ 动画暂停');
+        };
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                toggleAnimation();
+            }
+        });
+
+        // ========== 渲染循环 ==========
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            const delta = clock.getDelta();
+            const time = clock.getElapsedTime();
+            
+            if (isAnimating) {
+                // 呼吸
+                knight.position.y = Math.sin(time) * 0.012;
+                
+                // 轻微摇摆
+                knight.rotation.y = Math.sin(time * 0.4) * 0.02;
+                
+                // 披风飘动
+                capeOuter.rotation.z = Math.sin(time * 1.2) * 0.015;
+                capeInner.rotation.z = Math.sin(time * 1.2) * 0.015;
+                
+                // 羽毛摆动
+                plume.rotation.z = Math.sin(time * 1.8) * 0.025;
+                
+                // 眼睛发光脉动
+                Materials.glowBlue.opacity = 0.7 + Math.sin(time * 2.5) * 0.2;
+                
+                // 宝石闪烁
+                Materials.gem.emissive = new THREE.Color(0x1e40af);
+                Materials.gem.emissiveIntensity = 0.4 + Math.sin(time * 3) * 0.3;
+            }
+            
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        
+        // 默认开启动画
+        isAnimating = true;
+        animate();
+
+        // 窗口调整
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // 导出功能（按 E 键）
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'KeyE') {
+                const exporter = new GLTFExporter();
+                exporter.parse(
+                    knight,
+                    (gltf) => {
+                        const blob = new Blob([gltf], { type: 'model/gltf-binary' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = 'knight.glb';
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        console.log('✅ 模型已导出为 knight.glb');
+                    },
+                    (error) => {
+                        console.error('❌ 导出失败:', error);
+                    },
+                    { binary: true }
+                );
+            }
+        });
+
+        console.log('🛡️ 骑士模型加载完成！');
+        console.log('🎬 按空格键 播放/暂停动画');
+        console.log('💾 按 E 键 导出 GLB 模型');
+    </script>
+</body>
+</html>

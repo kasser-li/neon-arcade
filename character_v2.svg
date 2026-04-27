@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+  <!-- 黑色背景 -->
+  <rect width="400" height="400" fill="#1a1a2e"/>
+  
+  <!-- 耳机头带 - 白色粗线条 -->
+  <path d="M 110 100 Q 200 20 290 100" 
+        stroke="#ffffff" stroke-width="12" fill="none" stroke-linecap="round"/>
+  
+  <!-- 耳机耳罩 - 左侧 -->
+  <ellipse cx="105" cy="140" rx="25" ry="35" fill="#ffffff"/>
+  <!-- 耳机耳罩 - 右侧 -->
+  <ellipse cx="295" cy="140" rx="25" ry="35" fill="#ffffff"/>
+  
+  <!-- 脸部轮廓 - 白色豆子形状 -->
+  <ellipse cx="200" cy="160" rx="85" ry="70" fill="#ffffff"/>
+  
+  <!-- 左眼 - 黑色椭圆 -->
+  <ellipse cx="165" cy="155" rx="14" ry="20" fill="#1a1a2e"/>
+  <!-- 左眼高光 -->
+  <ellipse cx="169" cy="148" rx="5" ry="7" fill="#ffffff"/>
+  
+  <!-- 右眼 - 黑色椭圆 -->
+  <ellipse cx="235" cy="155" rx="14" ry="20" fill="#1a1a2e"/>
+  <!-- 右眼高光 -->
+  <ellipse cx="239" cy="148" rx="5" ry="7" fill="#ffffff"/>
+  
+  <!-- 脸部下方的小弧线 - 嘴巴/下巴轮廓 -->
+  <path d="M 185 195 Q 200 205 215 195" 
+        stroke="#e0e0e0" stroke-width="2" fill="none" stroke-linecap="round"/>
+  
+  <!-- 右手掌 - 白色填充的爪子 -->
+  <ellipse cx="310" cy="260" rx="40" ry="35" fill="#ffffff"/>
+  
+  <!-- 手指 - 线条风格在手掌上 -->
+  <g stroke="#1a1a2e" stroke-width="2.5" fill="none" stroke-linecap="round">
+    <!-- 拇指 -->
+    <path d="M 280 245 Q 265 235 260 220"/>
+    <!-- 食指 -->
+    <path d="M 295 240 Q 290 220 295 205"/>
+    <!-- 中指 -->
+    <path d="M 315 238 Q 320 218 330 205"/>
+    <!-- 无名指 -->
+    <path d="M 335 245 Q 345 230 355 220"/>
+  </g>
+  
+  <!-- 手指尖的小圆点 -->
+  <circle cx="260" cy="218" r="4" fill="#1a1a2e"/>
+  <circle cx="295" cy="203" r="4" fill="#1a1a2e"/>
+  <circle cx="330" cy="203" r="4" fill="#1a1a2e"/>
+  <circle cx="355" cy="218" r="4" fill="#1a1a2e"/>
+  
+  <!-- 手臂 - 白色线条连接身体和手 -->
+  <path d="M 260 200 Q 280 220 290 245" 
+        stroke="#ffffff" stroke-width="8" fill="none" stroke-linecap="round"/>
+  
+  <!-- 身体轮廓 - 简单的曲线 -->
+  <path d="M 150 220 Q 200 280 250 220" 
+        stroke="#ffffff" stroke-width="6" fill="none" stroke-linecap="round"/>
+  
+  <!-- 装饰性小星星 -->
+  <text x="50" y="80" font-size="20" fill="#ffffff">✦</text>
+  <text x="340" y="320" font-size="16" fill="#ffffff">✦</text>
+  <text x="80" y="350" font-size="12" fill="#ffffff">✦</text>
+</svg>

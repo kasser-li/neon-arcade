@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚔️ 2D 战棋 - 骑士对决</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #0a0a15 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: 'Segoe UI', sans-serif;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            border: 3px solid #444;
+            border-radius: 10px;
+            box-shadow: 0 0 40px rgba(0,0,0,0.8);
+        }
+        canvas {
+            display: block;
+            border-radius: 7px;
+        }
+        #ui {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            color: #fff;
+            background: rgba(0,0,0,0.7);
+            padding: 15px 20px;
+            border-radius: 8px;
+            font-size: 0.9em;
+            pointer-events: none;
+        }
+        #ui h2 {
+            margin-bottom: 8px;
+            background: linear-gradient(45deg, #ffd700, #ffaa00);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        #turn-display {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            padding: 12px 25px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1.1em;
+            pointer-events: none;
+        }
+        .player-turn {
+            background: linear-gradient(45deg, #0066ff, #00ccff);
+            box-shadow: 0 0 20px rgba(0,150,255,0.5);
+        }
+        .enemy-turn {
+            background: linear-gradient(45deg, #ff0066, #ff6600);
+            box-shadow: 0 0 20px rgba(255,50,50,0.5);
+        }
+        #message {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 15px 40px;
+            background: rgba(0,0,0,0.85);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 1.1em;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        #message.show { opacity: 1; }
+        #restart-btn {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            padding: 20px 50px;
+            background: linear-gradient(45deg, #ff0066, #ff00ff);
+            border: none;
+            color: #fff;
+            border-radius: 30px;
+            font-size: 1.3em;
+            cursor: pointer;
+            display: none;
+            box-shadow: 0 0 30px rgba(255,0,150,0.5);
+        }
+        #restart-btn:hover {
+            transform: translate(-50%, -50%) scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="ui">
+            <h2>⚔️ 2D 战棋</h2>
+            <p>🖱️ 点击绿色格子移动</p>
+            <p>⚔️ 靠近敌人自动攻击</p>
+            <p>❤️ 先击败对方获胜</p>
+        </div>
+        <div id="turn-display" class="player-turn">你的回合</div>
+        <div id="message"></div>
+        <button id="restart-btn" onclick="restartGame()">🔄 再来一局</button>
+    </div>
+
+    <script>
+        // ========== 游戏配置 ==========
+        const CONFIG = {
+            gridSize: 8,
+            cellSize: 70,
+            moveRange: 3,
+            attackRange: 1,
+            playerHP: 100,
+            enemyHP: 100
+        };
+
+        // ========== 游戏状态 ==========
+        let state = {
+            isPlayerTurn: true,
+            gameOver: false,
+            player: { x: 2, y: 2, hp: 100, maxHp: 100, attack: 25 },
+            enemy: { x: 5, y: 5, hp: 100, maxHp: 100, attack: 20 },
+            moveTargets: [],
+            animating: false,
+            particles: []
+        };
+
+        // ========== Canvas 设置 ==========
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        const padding = 40;
+        canvas.width = CONFIG.gridSize * CONFIG.cellSize + padding * 2;
+        canvas.height = CONFIG.gridSize * CONFIG.cellSize + padding * 2;
+
+        // ========== 绘制函数 ==========
+        function drawGradientRect(x, y, w, h, colors) {
+            const gradient = ctx.createLinearGradient(x, y, x + w, y + h);
+            colors.forEach((color, i) => {
+                gradient.addColorStop(i / (colors.length - 1), color);
+            });
+            ctx.fillStyle = gradient;
+            ctx.fillRect(x, y, w, h);
+        }
+
+        function drawCell(x, y, color, hover = false) {
+            const px = padding + x * CONFIG.cellSize;
+            const py = padding + y * CONFIG.cellSize;
+            const size = CONFIG.cellSize - 4;
+            
+            // 格子背景
+            drawGradientRect(px + 2, py + 2, size, size, color);
+            
+            // 边框
+            ctx.strokeStyle = hover ? '#fff' : '#333';
+            ctx.lineWidth = hover ? 3 : 1;
+            ctx.strokeRect(px + 2, py + 2, size, size);
+            
+            // 坐标文字
+            ctx.fillStyle = '#444';
+            ctx.font = '10px sans-serif';
+            ctx.fillText(`${x},${y}`, px + 5, py + 15);
+        }
+
+        function drawCharacter(char, isPlayer) {
+            const px = padding + char.x * CONFIG.cellSize + CONFIG.cellSize / 2;
+            const py = padding + char.y * CONFIG.cellSize + CONFIG.cellSize / 2;
+            const size = 28;
+            
+            ctx.save();
+            ctx.translate(px, py);
+            
+            // 轻微浮动动画
+            const float = Math.sin(Date.now() * 0.003 + (isPlayer ? 0 : 1)) * 3;
+            ctx.translate(0, float);
+            
+            // 阴影
+            ctx.fillStyle = 'rgba(0,0,0,0.3)';
+            ctx.beginPath();
+            ctx.ellipse(0, size - 5, size * 0.6, size * 0.3, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 身体（盔甲）
+            const bodyGradient = ctx.createRadialGradient(0, -5, 0, 0, 0, size);
+            if (isPlayer) {
+                bodyGradient.addColorStop(0, '#66aaff');
+                bodyGradient.addColorStop(0.5, '#3366cc');
+                bodyGradient.addColorStop(1, '#1a3d66');
+            } else {
+                bodyGradient.addColorStop(0, '#ff6666');
+                bodyGradient.addColorStop(0.5, '#cc3333');
+                bodyGradient.addColorStop(1, '#661a1a');
+            }
+            
+            ctx.fillStyle = bodyGradient;
+            ctx.beginPath();
+            ctx.roundRect(-size * 0.7, -size * 0.8, size * 1.4, size * 1.4, 8);
+            ctx.fill();
+            
+            // 盔甲高光
+            ctx.fillStyle = 'rgba(255,255,255,0.3)';
+            ctx.beginPath();
+            ctx.roundRect(-size * 0.5, -size * 0.6, size * 0.4, size * 0.3, 4);
+            ctx.fill();
+            
+            // 头盔
+            const helmetGradient = ctx.createRadialGradient(0, -size * 0.9, 0, 0, -size * 0.9, size * 0.5);
+            helmetGradient.addColorStop(0, '#ffd700');
+            helmetGradient.addColorStop(1, '#997700');
+            ctx.fillStyle = helmetGradient;
+            ctx.beginPath();
+            ctx.arc(0, -size * 0.9, size * 0.45, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // 眼睛（发光）
+            ctx.fillStyle = isPlayer ? '#00ffff' : '#ff6600';
+            ctx.shadowColor = ctx.fillStyle;
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.arc(-size * 0.15, -size * 0.85, 3, 0, Math.PI * 2);
+            ctx.arc(size * 0.15, -size * 0.85, 3, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            
+            // 武器
+            ctx.save();
+            ctx.translate(size * 0.6, 0);
+            ctx.rotate(Math.sin(Date.now() * 0.002) * 0.1);
+            
+            const weaponGradient = ctx.createLinearGradient(0, -size, 0, size);
+            weaponGradient.addColorStop(0, '#fff');
+            weaponGradient.addColorStop(0.5, '#ccc');
+            weaponGradient.addColorStop(1, '#888');
+            ctx.fillStyle = weaponGradient;
+            ctx.fillRect(-3, -size * 0.5, 6, size * 1.2);
+            
+            // 武器发光
+            ctx.fillStyle = isPlayer ? 'rgba(0,255,255,0.5)' : 'rgba(255,100,0,0.5)';
+            ctx.fillRect(-4, -size * 0.3, 8, size * 0.6);
+            ctx.restore();
+            
+            // 血条背景
+            ctx.fillStyle = '#222';
+            ctx.fillRect(-size * 0.8, -size * 1.3, size * 1.6, 8);
+            
+            // 血条
+            const hpPercent = char.hp / char.maxHp;
+            const hpColor = hpPercent > 0.5 ? '#00ff00' : hpPercent > 0.25 ? '#ffff00' : '#ff0000';
+            drawGradientRect(-size * 0.75, -size * 1.28, size * 1.5 * hpPercent, 6, [hpColor, hpPercent > 0.5 ? '#00aa00' : '#aa5500']);
+            
+            // HP 文字
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${char.hp}/${char.maxHp}`, 0, -size * 1.32);
+            
+            ctx.restore();
+        }
+
+        function drawMoveTargets() {
+            state.moveTargets.forEach(target => {
+                const px = padding + target.x * CONFIG.cellSize + CONFIG.cellSize / 2;
+                const py = padding + target.y * CONFIG.cellSize + CONFIG.cellSize / 2;
+                
+                // 脉冲效果
+                const pulse = Math.sin(Date.now() * 0.005) * 0.3 + 0.7;
+                
+                ctx.save();
+                ctx.globalAlpha = pulse;
+                
+                // 外圈
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(px, py, CONFIG.cellSize * 0.4, 0, Math.PI * 2);
+                ctx.stroke();
+                
+                // 内圈
+                ctx.fillStyle = 'rgba(0,255,0,0.3)';
+                ctx.beginPath();
+                ctx.arc(px, py, CONFIG.cellSize * 0.25, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+            });
+        }
+
+        function drawParticles() {
+            state.particles.forEach((p, i) => {
+                ctx.save();
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+                
+                p.x += p.vx;
+                p.y += p.vy;
+                p.life -= 0.02;
+                p.size *= 0.98;
+            });
+            
+            state.particles = state.particles.filter(p => p.life > 0);
+        }
+
+        function createParticles(x, y, color, count = 10) {
+            const px = padding + x * CONFIG.cellSize + CONFIG.cellSize / 2;
+            const py = padding + y * CONFIG.cellSize + CONFIG.cellSize / 2;
+            
+            for (let i = 0; i < count; i++) {
+                state.particles.push({
+                    x: px,
+                    y: py,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    size: Math.random() * 5 + 3,
+                    color: color,
+                    life: 1
+                });
+            }
+        }
+
+        function drawGrid() {
+            for (let x = 0; x < CONFIG.gridSize; x++) {
+                for (let y = 0; y < CONFIG.gridSize; y++) {
+                    const isDark = (x + y) % 2 === 0;
+                    const color = isDark 
+                        ? ['#2a2a4a', '#1a1a3a']
+                        : ['#3a3a5a', '#2a2a4a'];
+                    drawCell(x, y, color);
+                }
+            }
+        }
+
+        function draw() {
+            // 清空画布
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 绘制网格
+            drawGrid();
+            
+            // 绘制移动范围
+            drawMoveTargets();
+            
+            // 绘制角色
+            drawCharacter(state.player, true);
+            drawCharacter(state.enemy, false);
+            
+            // 绘制粒子
+            drawParticles();
+            
+            requestAnimationFrame(draw);
+        }
+
+        // ========== 游戏逻辑 ==========
+        function getDistance(a, b) {
+            return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+        }
+
+        function calculateMoveTargets() {
+            state.moveTargets = [];
+            if (!state.isPlayerTurn || state.gameOver) return;
+            
+            for (let x = 0; x < CONFIG.gridSize; x++) {
+                for (let y = 0; y < CONFIG.gridSize; y++) {
+                    const dist = Math.abs(x - state.player.x) + Math.abs(y - state.player.y);
+                    if (dist > 0 && dist <= CONFIG.moveRange) {
+                        state.moveTargets.push({ x, y });
+                    }
+                }
+            }
+        }
+
+        function attack(attacker, defender, isPlayer) {
+            const damage = attacker.attack + Math.floor(Math.random() * 10) - 5;
+            defender.hp = Math.max(0, defender.hp - damage);
+            
+            // 攻击特效
+            createParticles(defender.x, defender.y, isPlayer ? '#00ffff' : '#ff6600', 15);
+            
+            showMessage(`${isPlayer ? '你' : '敌人'} 造成 ${damage} 点伤害！`);
+            
+            if (defender.hp <= 0) {
+                endGame(isPlayer);
+            }
+        }
+
+        function showMessage(text) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.classList.add('show');
+            setTimeout(() => msg.classList.remove('show'), 2000);
+        }
+
+        function switchTurn() {
+            state.isPlayerTurn = !state.isPlayerTurn;
+            const display = document.getElementById('turn-display');
+            
+            if (state.isPlayerTurn) {
+                display.textContent = '你的回合';
+                display.className = 'player-turn';
+                calculateMoveTargets();
+            } else {
+                display.textContent = '敌人回合';
+                display.className = 'enemy-turn';
+                state.moveTargets = [];
+                setTimeout(enemyAI, 1000);
+            }
+        }
+
+        function enemyAI() {
+            if (state.gameOver) return;
+            
+            const dist = getDistance(state.enemy, state.player);
+            
+            if (dist <= CONFIG.attackRange) {
+                attack(state.enemy, state.player, false);
+            } else {
+                // 向玩家移动
+                let bestMove = null;
+                let bestDist = dist;
+                
+                for (let x = 0; x < CONFIG.gridSize; x++) {
+                    for (let y = 0; y < CONFIG.gridSize; y++) {
+                        const moveDist = Math.abs(x - state.enemy.x) + Math.abs(y - state.enemy.y);
+                        if (moveDist > 0 && moveDist <= CONFIG.moveRange) {
+                            const newDist = Math.abs(x - state.player.x) + Math.abs(y - state.player.y);
+                            if (newDist < bestDist) {
+                                bestDist = newDist;
+                                bestMove = { x, y };
+                            }
+                        }
+                    }
+                }
+                
+                if (bestMove) {
+                    state.enemy.x = bestMove.x;
+                    state.enemy.y = bestMove.y;
+                    
+                    if (bestDist <= CONFIG.attackRange) {
+                        setTimeout(() => attack(state.enemy, state.player, false), 300);
+                    }
+                }
+            }
+            
+            setTimeout(switchTurn, 1000);
+        }
+
+        function endGame(playerWon) {
+            state.gameOver = true;
+            state.moveTargets = [];
+            
+            const display = document.getElementById('turn-display');
+            const btn = document.getElementById('restart-btn');
+            
+            if (playerWon) {
+                display.textContent = '🎉 胜利！';
+                display.style.background = 'linear-gradient(45deg, #00ff00, #00aa00)';
+                createParticles(state.enemy.x, state.enemy.y, '#ffd700', 30);
+            } else {
+                display.textContent = '💀 失败...';
+                display.style.background = 'linear-gradient(45deg, #666, #333)';
+                createParticles(state.player.x, state.player.y, '#ff0000', 30);
+            }
+            
+            btn.style.display = 'block';
+        }
+
+        function restartGame() {
+            state = {
+                isPlayerTurn: true,
+                gameOver: false,
+                player: { x: 2, y: 2, hp: 100, maxHp: 100, attack: 25 },
+                enemy: { x: 5, y: 5, hp: 100, maxHp: 100, attack: 20 },
+                moveTargets: [],
+                animating: false,
+                particles: []
+            };
+            
+            const display = document.getElementById('turn-display');
+            display.textContent = '你的回合';
+            display.className = 'player-turn';
+            display.style.background = '';
+            
+            document.getElementById('restart-btn').style.display = 'none';
+            calculateMoveTargets();
+        }
+
+        // ========== 交互 ==========
+        canvas.addEventListener('click', (e) => {
+            if (!state.isPlayerTurn || state.gameOver) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left - padding) / CONFIG.cellSize);
+            const y = Math.floor((e.clientY - rect.top - padding) / CONFIG.cellSize);
+            
+            const target = state.moveTargets.find(t => t.x === x && t.y === y);
+            if (target) {
+                state.player.x = x;
+                state.player.y = y;
+                
+                if (getDistance(state.player, state.enemy) <= CONFIG.attackRange) {
+                    attack(state.player, state.enemy, true);
+                }
+                
+                switchTurn();
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left - padding) / CONFIG.cellSize);
+            const y = Math.floor((e.clientY - rect.top - padding) / CONFIG.cellSize);
+            
+            canvas.style.cursor = state.moveTargets.some(t => t.x === x && t.y === y) 
+                ? 'pointer' 
+                : 'default';
+        });
+
+        // ========== 初始化 ==========
+        calculateMoveTargets();
+        draw();
+        
+        console.log('⚔️ 2D 战棋游戏已启动！');
+    </script>
+</body>
+</html>
